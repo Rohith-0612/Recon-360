@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product 360 — Client Health Demo</title>
+<style>
+  :root{
+    --bg:var(--theme-background,#f6f7f9);
+    --surface:var(--theme-background-light,#fff);
+    --surface2:#eef1f5;
+    --text:var(--theme-text-primary,#0f1420);
+    --text2:#586173;
+    --muted:#8b94a4;
+    --border:#e5e9f0;
+    --accent:var(--theme-primary-highlight,#2f6df6);
+    --accent-soft:rgba(47,109,246,.10);
+    --green:#189a5b;--green-soft:rgba(24,154,91,.12);
+    --amber:#cf8500;--amber-soft:rgba(207,133,0,.14);
+    --red:#d6453a;--red-soft:rgba(214,69,58,.12);
+    --purple:#7a55d6;--purple-soft:rgba(122,85,214,.12);
+    --shadow:0 1px 3px rgba(15,20,32,.06),0 10px 30px rgba(15,20,32,.05);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  html[data-theme='dark']{
+    --surface2:#171c26;--text2:#a6b0bf;--muted:#6c7688;--border:#28303d;
+    --accent-soft:rgba(47,109,246,.2);--shadow:0 1px 3px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--text);line-height:1.5}
+  .app{max-width:1160px;margin:0 auto;padding:20px 22px 70px}
+  /* top nav */
+  .nav{display:flex;align-items:center;gap:14px;padding:12px 0 18px;flex-wrap:wrap}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;letter-spacing:-.01em}
+  .logo .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#7a55d6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800}
+  .logo .beta{font-family:var(--mono);font-size:9px;background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:5px;font-weight:700;letter-spacing:.08em}
+  .search{flex:1;min-width:240px;position:relative}
+  .search input{width:100%;padding:10px 14px 10px 36px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13.5px;outline:none}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+  .navbtns{display:flex;gap:6px}
+  .navbtn{font-size:12px;font-weight:600;color:var(--text2);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:9px;cursor:pointer}
+  .navbtn.active{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  .selbox{padding:8px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;outline:none}
+  .selbox:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .diffcard{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 12px 12px 0;padding:14px 18px;margin-bottom:18px;font-size:13.5px}
+  .diffcard b{color:var(--accent)}
+  .repcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;max-width:780px}
+  .rep-head{display:flex;justify-content:space-between;align-items:center;padding:22px 26px;border-bottom:1px solid var(--border)}
+  .rep-title{font-size:19px;font-weight:700}.rep-sub{font-size:13px;color:var(--text2);margin-top:2px}
+  .rep-logo{font-weight:800;color:var(--accent);letter-spacing:-.02em;font-size:16px}
+  .rep-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:24px 26px;background:var(--accent-soft)}
+  .rep-big{font-size:30px;font-weight:750;letter-spacing:-.02em}.rep-cap{font-size:12px;color:var(--text2);margin-top:2px}
+  .rep-sec{padding:18px 26px;border-top:1px solid var(--border)}
+  .rep-sec h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .rep-sec ul{margin:0;padding-left:18px;font-size:14px}.rep-sec li{margin:5px 0}
+  .rep-foot{padding:16px 26px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)}
+  .flag{font-family:var(--mono);font-size:9px;color:var(--muted);border:1px dashed var(--border);border-radius:6px;padding:5px 8px}
+  .mctl{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+  .mctl b{color:var(--text);font-family:var(--mono);min-width:30px}
+  .mctl input[type=range]{width:96px;accent-color:var(--accent)}
+  .mflag{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+  .mf-ok{background:rgba(34,197,94,.12);color:var(--green)}
+  .mf-watch{background:rgba(245,158,11,.14);color:var(--amber)}
+  .mf-low{background:rgba(239,68,68,.13);color:var(--red)}
+  .mf-hidden{background:rgba(168,85,247,.14);color:#a855f7}
+
+  h1{font-size:26px;font-weight:650;margin:2px 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--text2);font-size:14px;margin:0 0 18px;max-width:640px}
+
+  /* portfolio */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .kpi .v{font-size:24px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
+  .kpi .d{font-size:11.5px;margin-top:2px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+  .card-h{padding:16px 18px;border-bottom:1px solid var(--border);font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:10px 16px;border-bottom:1px solid var(--border)}
+  th.num,td.num{text-align:right}th.ctr,td.ctr{text-align:center}
+  td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+  tbody tr{cursor:pointer;transition:background .12s}
+  tbody tr:hover{background:var(--surface2)}
+  tbody tr:last-child td{border-bottom:none}
+  .cname{font-weight:600}.csub{font-size:11px;color:var(--muted)}
+  .score-chip{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;font-weight:700;font-size:14px}
+  .badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .b-green{background:var(--green-soft);color:var(--green)}.b-amber{background:var(--amber-soft);color:var(--amber)}
+  .b-red{background:var(--red-soft);color:var(--red)}.b-purple{background:var(--purple-soft);color:var(--purple)}
+  .b-over{background:var(--red-soft);color:var(--red);font-weight:700}
+  .delta{font-family:var(--mono);font-size:12px}
+  .up{color:var(--green)}.down{color:var(--red)}.flat{color:var(--muted)}
+  .mini{width:60px;height:6px;border-radius:4px;background:var(--surface2);overflow:hidden;display:inline-block;vertical-align:middle}
+  .mini span{display:block;height:100%}
+
+  /* detail */
+  .crumb{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:14px}
+  .crumb-link{color:var(--accent);cursor:pointer}
+  .crumb-link:hover{text-decoration:underline}
+  .crumb-sep{color:var(--muted);font-weight:400}
+  .crumb-cur{color:var(--text2)}
+  .client-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 20px;margin-bottom:18px}
+  .avatar{width:46px;height:46px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+  .facts{display:flex;gap:24px;margin-left:auto;flex-wrap:wrap}
+  .facts .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .facts .v{font-size:15px;font-weight:650}
+  .grid{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+  .grid2{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}
+  .wtag{font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);padding:1px 6px;border-radius:5px;margin-left:6px;font-weight:600}
+  .dbh{width:70px}
+  .drv-sub{font-family:var(--mono);font-size:11px;color:var(--muted);padding:0 8px 9px 8px;margin:-3px -8px 0}
+  .info{position:relative;display:inline-block;margin-left:6px;color:var(--muted);cursor:help;font-size:12px}
+  .info:hover{color:var(--accent)}
+  .info::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(4px);background:var(--text);color:var(--surface);font-family:var(--mono);font-size:11px;line-height:1.3;white-space:nowrap;padding:6px 9px;border-radius:7px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:60}
+  .info.wide::after{white-space:normal;width:300px;text-align:left;font-family:var(--font,inherit)}
+  .info::before{content:'';position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--text);opacity:0;transition:opacity .15s;z-index:60}
+  .info:hover::after,.info:hover::before{opacity:1}
+  .info:hover::after{transform:translateX(-50%) translateY(0)}
+  @media(max-width:840px){.grid,.grid2{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+  .pad{padding:20px}
+  .gwrap{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .gauge{position:relative;width:150px;height:150px}.gauge svg{transform:rotate(-90deg)}
+  .gscore{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gnum{font-size:40px;font-weight:750;letter-spacing:-.02em}.gof{font-size:11px;color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:999px;margin-top:10px}
+  .trend{font-size:12.5px;margin-top:8px;font-weight:600}
+  .driver{display:flex;align-items:center;gap:10px;padding:11px 8px;border-top:1px solid var(--border);cursor:pointer;border-radius:8px;margin:0 -8px;transition:background .12s}
+  .driver:hover{background:var(--surface2)}.driver.sel{background:var(--accent-soft)}
+  .driver:first-of-type{border-top:none}
+  .dn{font-size:13.5px;font-weight:500;flex:1}
+  .db{width:70px;height:6px;border-radius:4px;background:var(--surface2);overflow:hidden}.db span{display:block;height:100%}
+  .dd{font-family:var(--mono);font-size:12px;width:32px;text-align:right}
+  .dval{font-family:var(--mono);font-weight:700;font-size:15px;width:30px;text-align:right}
+  .drv-head{display:flex;align-items:center;gap:10px;padding:0 8px 8px;margin:0 -8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .drv-head .dn{font-weight:600}
+  .drv-head .hv{width:30px;text-align:right}
+  .drv-head .hd{width:32px;text-align:right}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:12px}
+  .check{color:var(--green);font-weight:700}.cross{color:var(--muted);font-weight:700}.part{color:var(--amber);font-weight:700}
+  .util{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+  .spark{font-family:var(--mono);font-size:13px;letter-spacing:1px}
+  .prow.dim{opacity:.32}
+  .insights{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+  @media(max-width:840px){.insights{grid-template-columns:1fr}}
+  .insight{border-radius:13px;padding:16px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
+  .insight .tag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .insight.risk .tag{color:var(--red)}.insight.grow .tag{color:var(--green)}.insight.fin .tag{color:var(--purple)}
+  .insight h3{font-size:14.5px;margin:8px 0 5px}.insight p{font-size:12.5px;color:var(--text2);margin:0 0 10px}
+  .insight .act{font-size:12.5px;font-weight:650;color:var(--accent)}
+  .narr{margin-top:18px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 12px 12px 0;padding:16px 20px}
+  .narr .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .narr p{margin:7px 0 0;font-size:14px}
+  .foot{text-align:center;font-size:10.5px;color:var(--muted);margin-top:30px;font-family:var(--mono)}
+  .hidden{display:none}
+  .lastq{font-size:12px;color:var(--text2);margin-top:8px}
+  .lastq b{color:var(--text)}
+  .calc-h{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:10px}
+  .calc-row{display:grid;grid-template-columns:1fr 50px 38px 48px;gap:6px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--border);align-items:center}
+  .calc-row:first-of-type{border-top:none}
+  .calc-row .cw,.calc-row .cv,.calc-row .cp{text-align:right;font-family:var(--mono)}
+  .calc-head{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  .calc-total{border-top:2px solid var(--border);font-weight:700}
+  .calc-total .cp{color:var(--accent)}
+  .calc-note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.45}
+  .aibar{margin-bottom:18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow)}
+  .aibar .q{font-size:13px;color:var(--text2)}.aibar .q b{color:var(--text)}
+  .aibar .a{font-size:13.5px;margin-top:8px;padding-top:10px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav">
+    <div class="logo"><span class="mark">P360</span>Product&nbsp;360 <span class="beta">HEALTHCARD+</span></div>
+    <div class="search"><span class="ic">⌕</span><input id="q" placeholder="Ask: which clients are billed for products they don't use?" /></div>
+    <div class="navbtns">
+      <button class="navbtn active" id="tab-port" onclick="show('port')">Portfolio</button>
+      <button class="navbtn" id="tab-trends" onclick="show('trends')">Usage Trends</button>
+      <button class="navbtn" id="tab-upsell" onclick="show('upsell')">Upsell Engine</button>
+      <button class="navbtn" id="tab-margin" onclick="show('margin')">Margin</button>
+      <button class="navbtn" id="tab-alerts" onclick="show('alerts')">Alerts</button>
+      <button class="navbtn" id="tab-value" onclick="show('value')">Value Report</button>
+    </div>
+    <span class="flag">DEMO · illustrative data</span>
+  </div>
+
+  <!-- ============ PORTFOLIO VIEW ============ -->
+  <div id="view-port">
+    <h1>Client Portfolio Health</h1>
+    <p class="sub">One reconciled view across Salesforce contracts, usage_billing, and invoicing. Click any client to open their Product 360 card.</p>
+    <div class="kpis">
+      <div class="kpi" data-glean-id="kpi-tile-book"><div class="l">Book of Business</div><div class="v" id="kpi-book">—</div><div class="d up" id="kpi-book-sub"></div></div>
+      <div class="kpi" data-glean-id="kpi-tile-atrisk"><div class="l">At-Risk Accounts</div><div class="v" id="kpi-atrisk" style="color:var(--red)">—</div><div class="d down" id="kpi-atrisk-sub"></div></div>
+      <div class="kpi" data-glean-id="kpi-tile-mismatch"><div class="l">Billing Mismatches</div><div class="v" id="kpi-mismatch" style="color:var(--purple)">—</div><div class="d flat" id="kpi-mismatch-sub"></div></div>
+      <div class="kpi" data-glean-id="kpi-tile-white"><div class="l">Whitespace Signals</div><div class="v" id="kpi-white" style="color:var(--green)">—</div><div class="d up">used-not-owned upsell</div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span>Clients (<span id="client-count">0</span>)</span><span style="text-transform:none;letter-spacing:0;color:var(--muted);font-weight:500">sorted by risk</span></div>
+      <table>
+        <thead><tr><th>Client</th><th class="ctr">Health</th><th>Status</th><th class="num">ACV</th><th class="ctr">Renewal</th><th class="num">Products used</th><th class="ctr">Flags</th></tr></thead>
+        <tbody id="port-rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ DETAIL VIEW ============ -->
+  <div id="view-detail" class="hidden">
+    <div class="crumb"><span class="crumb-link" onclick="show('port')">Portfolio</span><span class="crumb-sep">›</span><span class="crumb-cur" id="d-crumb">Client</span></div>
+    <div class="card client-bar">
+      <div class="avatar" id="d-av">NA</div>
+      <div><div class="cname" id="d-name" style="font-size:18px"></div><div class="csub" id="d-sub"></div></div>
+      <div class="facts">
+        <div><div class="l">ACV</div><div class="v" id="d-acv"></div></div>
+        <div><div class="l">Tenure</div><div class="v" id="d-ten"></div></div>
+        <div><div class="l">Renewal</div><div class="v" id="d-ren"></div></div>
+        <div><div class="l">Products</div><div class="v" id="d-prodcount"></div></div>
+      </div>
+    </div>
+    <div class="aibar">
+      <div class="q">✦ <b>Auto-summary:</b> <span id="d-ai-q"></span></div>
+      <div class="a" id="d-ai-a"></div>
+    </div>
+    <div class="grid2">
+        <div class="card pad gwrap">
+          <div style="align-self:flex-start;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:12px">Overall Health</div>
+          <div class="gauge"><svg width="150" height="150" viewBox="0 0 150 150">
+            <circle cx="75" cy="75" r="65" fill="none" stroke="var(--surface2)" stroke-width="13"/>
+            <circle id="d-arc" cx="75" cy="75" r="65" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="408.4"/>
+          </svg><div class="gscore"><span class="gnum" id="d-score"></span><span class="gof">/ 100</span></div></div>
+          <span class="pill" id="d-pill"></span>
+          <span class="trend" id="d-trend"></span>
+          <div class="lastq" id="d-lastq"></div>
+        </div>
+        <div class="card pad">
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:12px">Score Drivers</div>
+          <div class="drv-head"><span class="dn">Signal</span><span class="dbh"></span><span class="hv">Score</span><span class="hd">Δ QoQ</span></div>
+          <div id="d-drivers"></div>
+          <p class="hint">↳ Click a driver to isolate the products behind it</p>
+        </div>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <div class="card-h"><span>Product Truth Layer — Bought · Used · Billed</span><span id="d-driver-lbl" style="text-transform:none;letter-spacing:0;color:var(--accent);font-weight:600"></span></div>
+        <table><thead><tr><th>Product</th><th class="ctr">Bought</th><th class="ctr">Used</th><th class="ctr">Billed</th><th class="num">Utilization</th><th class="ctr">90-day</th><th>Status</th></tr></thead>
+        <tbody id="d-prows"></tbody></table>
+        <p class="hint" style="padding:0 16px 14px">◐ partial · — none · reconciles Salesforce + usage_billing (BigQuery) + invoicing</p>
+      </div>
+    <div class="insights" id="d-insights"></div>
+    <div class="narr"><span class="tag">✦ Auto-generated QBR narrative</span><p id="d-narr"></p></div>
+  </div>
+
+  <div id="view-trends" class="hidden">
+    <h1>Usage Explorer</h1>
+    <p class="sub">Actual usage volumes — not just percentages — surfaced automatically instead of pulled by hand from Connect Platform. Read the trend and spot upsell, over-usage, and risk at a glance.</p>
+    <div class="diffcard">Connect Platform dashboards show <b>utilization % only</b> (e.g. 90%). This shows the <b>real monthly volumes</b> behind it and how they’re moving — including when a client bursts <b>past their commit</b> (over-usage), the cleanest upsell/overage trigger.</div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Client</label>
+      <select id="trend-client" class="selbox" onchange="renderTrends()"></select>
+      <div id="trend-kpis" style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><span>Monthly Usage by Product — last 6 months (actual numbers)</span></div>
+      <table><thead><tr><th>Product</th><th class="num">Mar</th><th class="num">Apr</th><th class="num">May</th><th class="num">Jun</th><th class="num">Jul</th><th class="num">Aug</th><th class="ctr">Trend</th><th class="num">MoM</th><th class="num">vs commit</th><th>Signal</th></tr></thead>
+      <tbody id="trend-rows"></tbody></table>
+      <p class="hint" style="padding:0 16px 14px">Volumes in each product’s native unit · “vs commit” &gt;100% = over-usage · sourced from usage_billing instead of manual Connect exports</p>
+    </div>
+  </div>
+
+  <div id="view-upsell" class="hidden">
+    <h1>Upsell Engine</h1>
+    <p class="sub">Turns over-usage and whitespace signals into priced, routed expansion plays — automatically. New capability: nothing at LiveRamp converts a usage signal into a drafted quote today.</p>
+    <div style="display:flex;margin-bottom:14px"><div id="upsell-kpis" style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap"></div></div>
+    <div class="card"><div class="card-h"><span>Auto-generated expansion plays</span></div>
+      <table><thead><tr><th>Client / Product</th><th>Signal</th><th>Current commit</th><th>Actual usage</th><th>Recommendation</th><th class="num">Est. ACV uplift</th><th>Routed to</th></tr></thead><tbody id="upsell-rows"></tbody></table>
+      <p class="hint" style="padding:0 16px 14px">Uplift is an illustrative estimate · quotes would draft into Salesforce, overage into billing</p></div>
+  </div>
+
+  <div id="view-margin" class="hidden">
+    <h1>Client Margin Lens</h1>
+    <p class="sub">Cost-to-serve layered onto every account to reveal true margin — not just revenue. Surfaces “healthy but low-margin” clients no existing LiveRamp view shows.</p>
+    <div class="card" style="padding:12px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <span class="csub" style="font-weight:700;color:var(--text)">Cost-to-serve assumptions</span>
+        <label class="mctl">Baseline <b id="ms-base-v">30%</b><input id="ms-base" type="range" min="15" max="45" value="30"></label>
+        <label class="mctl">Usage intensity <b id="ms-int-v">40%</b><input id="ms-int" type="range" min="10" max="60" value="40"></label>
+        <label class="mctl">Over-usage penalty <b id="ms-over-v">8%</b><input id="ms-over" type="range" min="0" max="20" value="8"></label>
+        <span class="csub" style="margin-left:auto">Finance can tune → margins recompute live</span>
+      </div>
+    </div>
+    <div style="display:flex;margin-bottom:14px"><div id="margin-kpis" style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap"></div></div>
+    <div class="card"><div class="card-h"><span>Margin by client (sorted lowest first)</span></div>
+      <table><thead><tr><th>Client</th><th class="num">ACV</th><th class="num">Est. cost-to-serve</th><th class="num">Gross margin</th><th class="num">Margin %</th><th class="ctr">Health</th><th>Flag</th></tr></thead><tbody id="margin-rows"></tbody></table>
+      <p class="hint" style="padding:0 16px 14px">Cost-to-serve estimated from usage intensity (compute/token cost) · illustrative</p></div>
+  </div>
+
+  <div id="view-alerts" class="hidden">
+    <h1>Leading-Indicator Alerts</h1>
+    <p class="sub">Real-time anomalies caught before they hit the monthly health score — early warning across the book, with an owner for each.</p>
+    <div style="display:flex;margin-bottom:14px"><div id="alerts-kpis" style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap"></div></div>
+    <div class="card"><div class="card-h"><span>Active alerts</span></div>
+      <table><thead><tr><th>Severity</th><th>Client / Product</th><th>What happened</th><th>Signal</th><th>Detected</th><th>Owner</th></tr></thead><tbody id="alerts-rows"></tbody></table>
+      <p class="hint" style="padding:0 16px 14px">Derived from daily usage movement · illustrative timestamps</p></div>
+  </div>
+
+  <div id="view-value" class="hidden">
+    <h1>Client Value Report</h1>
+    <p class="sub">One-click, client-ready value summary generated from live usage — for QBRs and renewals. Turns internal data into an external, brandable artifact.</p>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Client</label>
+      <select id="value-client" class="selbox" onchange="renderValue()"></select>
+    </div>
+    <div id="value-report"></div>
+  </div>
+
+  <p class="foot">PRODUCT 360 · HEALTHCARD+ · HACKATHON DEMO · SAMPLE DATA ONLY</p>
+</div>
+
+<script>
+const COL={green:'var(--green)',amber:'var(--amber)',red:'var(--red)',purple:'var(--purple)'};
+function scoreColor(s){return s>=75?COL.green:s>=60?COL.amber:COL.red}
+function scoreBg(s){return s>=75?'var(--green-soft)':s>=60?'var(--amber-soft)':'var(--red-soft)'}
+function statusBadge(s){return s>=75?['Healthy','b-green']:s>=60?['At Risk','b-amber']:['Critical','b-red']}
+const P=Object.freeze;
+// product status -> badge
+const PB={healthy:['Healthy','b-green'],under:['Underutilized','b-amber'],gap:['Adoption gap','b-red'],billnouse:['Billed, not used','b-purple'],usenobill:['Used, not billed','b-purple'],over:['⚡ Over allotment','b-over']};
+const CLIENTS=[
+{id:"orionautogroup",name:"Orion Auto Group",sub:"Automotive \u00b7 CSM: Priya Nair \u00b7 SFDC #A-10000",av:"OA",acv:"$770K",ten:"6.3 yrs",ren:"310 days",renColor:'var(--green)',
+  delta:2,
+  drivers:[["Utilization",90,3,COL.green,[]],["Product Adoption",83,2,COL.green,[]],["ROI / Value",92,1,COL.green,[]],["Payment / AR",92,0,COL.green,[]],["Relationship",87,2,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:116,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:88,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:85,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:81,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"ctv",n:"TV / CTV Signal",c:"media",b:1,u:1,bl:1,util:76,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"}],
+  aiq:"Is Orion Auto Group a reference-account candidate?",aia:"Yes \u2014 <b>89 (\u25b22)</b>, one of the strongest accounts. Full suite adopted, all 5 products above 76% utilization, clean billing, renewal 310 days out. Ideal advocate / case-study candidate.",
+  insights:[["grow", "↗ Advocacy · CSM", "Full-suite, high adoption", "Every owned product is highly adopted — a model account for a case study or reference.", "→ Nominate for advocacy program"], ["grow", "⚡ Overage trigger · Finance", "Data Collaboration 16% over allotment", "A contracted product is over its committed volume — bill the overage and move to a higher tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes.", "→ No action needed"]],
+  narr:"Orion Auto Group is a flagship account at <b>89 (▲2)</b>, with the full suite adopted and strong utilization across every line — <b>Data Collaboration is now 16% over its allotment</b>, a billable overage and tier-upgrade trigger. Renewal is 310 days out. An ideal <b>reference / advocacy candidate</b>."},
+{id:"meridianairlin",name:"Meridian Airlines",sub:"Travel & Transport \u00b7 CSM: Marco Ruiz \u00b7 SFDC #A-10137",av:"MA",acv:"$1.32M",ten:"7.1 yrs",ren:"285 days",renColor:'var(--green)',
+  delta:2,
+  drivers:[["Utilization",91,3,COL.green,[]],["Product Adoption",83,2,COL.green,[]],["ROI / Value",88,1,COL.green,[]],["Payment / AR",95,0,COL.green,[]],["Relationship",81,2,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:116,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:88,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:85,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:81,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"ctv",n:"TV / CTV Signal",c:"media",b:1,u:1,bl:1,util:76,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"}],
+  aiq:"Is Meridian Airlines a reference-account candidate?",aia:"Yes \u2014 <b>88 (\u25b22)</b>, one of the strongest accounts. Full suite adopted, all 5 products above 76% utilization, clean billing, renewal 285 days out. Ideal advocate / case-study candidate.",
+  insights:[["grow", "↗ Advocacy · CSM", "Full-suite, high adoption", "Every owned product is highly adopted — a model account for a case study or reference.", "→ Nominate for advocacy program"], ["grow", "⚡ Overage trigger · Finance", "Data Collaboration 16% over allotment", "A contracted product is over its committed volume — bill the overage and move to a higher tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes.", "→ No action needed"]],
+  narr:"Meridian Airlines is a flagship account at <b>88 (▲2)</b>, with the full suite adopted and strong utilization across every line — <b>Data Collaboration is now 16% over its allotment</b>, a billable overage and tier-upgrade trigger. Renewal is 285 days out. An ideal <b>reference / advocacy candidate</b>."},
+{id:"cascadebeverag",name:"Cascade Beverages",sub:"CPG \u00b7 CSM: Dana Kim \u00b7 SFDC #A-10274",av:"CB",acv:"$910K",ten:"4.8 yrs",ren:"260 days",renColor:'var(--green)',
+  delta:2,
+  drivers:[["Utilization",92,3,COL.green,[]],["Product Adoption",83,2,COL.green,[]],["ROI / Value",90,1,COL.green,[]],["Payment / AR",91,0,COL.green,[]],["Relationship",87,2,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:112,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:88,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:85,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:81,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"ctv",n:"TV / CTV Signal",c:"media",b:1,u:1,bl:1,util:76,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"}],
+  aiq:"Is Cascade Beverages a reference-account candidate?",aia:"Yes \u2014 <b>89 (\u25b22)</b>, one of the strongest accounts. Full suite adopted, all 5 products above 76% utilization, clean billing, renewal 260 days out. Ideal advocate / case-study candidate.",
+  insights:[["grow", "↗ Advocacy · CSM", "Full-suite, high adoption", "Every owned product is highly adopted — a model account for a case study or reference.", "→ Nominate for advocacy program"], ["grow", "⚡ Overage trigger · Finance", "Data Collaboration 12% over allotment", "A contracted product is over its committed volume — bill the overage and move to a higher tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes.", "→ No action needed"]],
+  narr:"Cascade Beverages is a flagship account at <b>89 (▲2)</b>, with the full suite adopted and strong utilization across every line — <b>Data Collaboration is now 12% over its allotment</b>, a billable overage and tier-upgrade trigger. Renewal is 260 days out. An ideal <b>reference / advocacy candidate</b>."},
+{id:"atlasfinancial",name:"Atlas Financial Services",sub:"BFSI \u00b7 CSM: Sofia Alvarez \u00b7 SFDC #A-10411",av:"AF",acv:"$1.15M",ten:"5.1 yrs",ren:"240 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",83,5,COL.green,["marketplace"]],["Product Adoption",82,3,COL.green,[]],["ROI / Value",87,6,COL.green,[]],["Payment / AR",92,0,COL.green,[]],["Relationship",76,1,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:115,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:85,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:79,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:68,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"marketplace",n:"Data Marketplace",c:"data",b:0,u:0.5,bl:0,util:28,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"usenobill"}],
+  aiq:"Is Atlas Financial Services a candidate for expansion this quarter?",aia:"Yes. Atlas Financial Services is <b>healthy (84, \u25b24)</b> with rising utilization; <b>Data Collaboration is 15% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming Data Marketplace with no contract</b> \u2014 clean expansion signals before renewal in 240 days.",
+  insights:[["grow", "↗ Expansion · Sales", "Data Marketplace used, not owned", "Rising consumption with no contract line — a strong, low-friction upsell.", "→ Draft Data Marketplace expansion quote"], ["grow", "⚡ Overage trigger · Sales", "Data Collaboration 15% over allotment", "Sustained over-consumption on a contracted product — bill the overage and upsell a higher committed tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "Bought/used/billed reconcile on contracted lines — no disputes expected.", "→ No action needed"]],
+  narr:"Atlas Financial Services is a healthy, expanding account at <b>84 (▲4)</b> with rising utilization. <b>data collaboration is 15% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming data marketplace with no contract</b>. With renewal 240 days out, recommend triggering the overage bill, a committed-tier upgrade, and a Data Marketplace upsell."},
+{id:"lumenstreaming",name:"Lumen Streaming",sub:"Media & Entertainment \u00b7 CSM: James Okoro \u00b7 SFDC #A-10548",av:"LS",acv:"$680K",ten:"2.9 yrs",ren:"200 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",87,5,COL.green,["marketplace"]],["Product Adoption",77,3,COL.green,[]],["ROI / Value",89,6,COL.green,[]],["Payment / AR",91,0,COL.green,[]],["Relationship",76,1,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:114,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:85,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:79,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:68,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"marketplace",n:"Data Marketplace",c:"data",b:0,u:0.5,bl:0,util:21,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"usenobill"}],
+  aiq:"Is Lumen Streaming a candidate for expansion this quarter?",aia:"Yes. Lumen Streaming is <b>healthy (84, \u25b24)</b> with rising utilization; <b>Data Collaboration is 14% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming Data Marketplace with no contract</b> \u2014 clean expansion signals before renewal in 200 days.",
+  insights:[["grow", "↗ Expansion · Sales", "Data Marketplace used, not owned", "Rising consumption with no contract line — a strong, low-friction upsell.", "→ Draft Data Marketplace expansion quote"], ["grow", "⚡ Overage trigger · Sales", "Data Collaboration 14% over allotment", "Sustained over-consumption on a contracted product — bill the overage and upsell a higher committed tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "Bought/used/billed reconcile on contracted lines — no disputes expected.", "→ No action needed"]],
+  narr:"Lumen Streaming is a healthy, expanding account at <b>84 (▲4)</b> with rising utilization. <b>data collaboration is 14% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming data marketplace with no contract</b>. With renewal 200 days out, recommend triggering the overage bill, a committed-tier upgrade, and a Data Marketplace upsell."},
+{id:"vaultlineinsur",name:"Vaultline Insurance",sub:"Insurance \u00b7 CSM: Wei Chen \u00b7 SFDC #A-10685",av:"VI",acv:"$840K",ten:"3.6 yrs",ren:"175 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",86,5,COL.green,["marketplace"]],["Product Adoption",77,3,COL.green,[]],["ROI / Value",83,6,COL.green,[]],["Payment / AR",90,0,COL.green,[]],["Relationship",76,1,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:115,tr:"\u2586\u2587\u2588\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:85,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:79,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:68,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"marketplace",n:"Data Marketplace",c:"data",b:0,u:0.5,bl:0,util:26,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"usenobill"}],
+  aiq:"Is Vaultline Insurance a candidate for expansion this quarter?",aia:"Yes. Vaultline Insurance is <b>healthy (83, \u25b24)</b> with rising utilization; <b>Data Collaboration is 15% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming Data Marketplace with no contract</b> \u2014 clean expansion signals before renewal in 175 days.",
+  insights:[["grow", "↗ Expansion · Sales", "Data Marketplace used, not owned", "Rising consumption with no contract line — a strong, low-friction upsell.", "→ Draft Data Marketplace expansion quote"], ["grow", "⚡ Overage trigger · Sales", "Data Collaboration 15% over allotment", "Sustained over-consumption on a contracted product — bill the overage and upsell a higher committed tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "Bought/used/billed reconcile on contracted lines — no disputes expected.", "→ No action needed"]],
+  narr:"Vaultline Insurance is a healthy, expanding account at <b>83 (▲4)</b> with rising utilization. <b>data collaboration is 15% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming data marketplace with no contract</b>. With renewal 175 days out, recommend triggering the overage bill, a committed-tier upgrade, and a Data Marketplace upsell."},
+{id:"brightwavetele",name:"Brightwave Telecom",sub:"Telecom \u00b7 CSM: Priya Nair \u00b7 SFDC #A-10822",av:"BT",acv:"$1.24M",ten:"4.2 yrs",ren:"220 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",87,5,COL.green,["marketplace"]],["Product Adoption",80,3,COL.green,[]],["ROI / Value",83,6,COL.green,[]],["Payment / AR",92,0,COL.green,[]],["Relationship",75,1,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:113,tr:"\u2585\u2586\u2587\u2588\u2588",trc:"up",st:"over"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:85,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:79,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:68,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"marketplace",n:"Data Marketplace",c:"data",b:0,u:0.5,bl:0,util:20,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"usenobill"}],
+  aiq:"Is Brightwave Telecom a candidate for expansion this quarter?",aia:"Yes. Brightwave Telecom is <b>healthy (84, \u25b24)</b> with rising utilization; <b>Data Collaboration is 13% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming Data Marketplace with no contract</b> \u2014 clean expansion signals before renewal in 220 days.",
+  insights:[["grow", "↗ Expansion · Sales", "Data Marketplace used, not owned", "Rising consumption with no contract line — a strong, low-friction upsell.", "→ Draft Data Marketplace expansion quote"], ["grow", "⚡ Overage trigger · Sales", "Data Collaboration 13% over allotment", "Sustained over-consumption on a contracted product — bill the overage and upsell a higher committed tier.", "→ Trigger overage bill + tier upgrade"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "Bought/used/billed reconcile on contracted lines — no disputes expected.", "→ No action needed"]],
+  narr:"Brightwave Telecom is a healthy, expanding account at <b>84 (▲4)</b> with rising utilization. <b>data collaboration is 13% over its allotment</b> (a billable overage and tier-upgrade trigger) and it is <b>consuming data marketplace with no contract</b>. With renewal 220 days out, recommend triggering the overage bill, a committed-tier upgrade, and a Data Marketplace upsell."},
+{id:"harborretailco",name:"Harbor Retail Co.",sub:"Retail \u00b7 CSM: Marco Ruiz \u00b7 SFDC #A-10959",av:"HR",acv:"$295K",ten:"2.7 yrs",ren:"155 days",renColor:'var(--green)',
+  delta:1,
+  drivers:[["Utilization",68,2,COL.amber,["identity"]],["Product Adoption",65,-2,COL.amber,[]],["ROI / Value",75,3,COL.green,[]],["Payment / AR",85,0,COL.green,[]],["Relationship",70,1,COL.green,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:80,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:72,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:51,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"under"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:64,tr:"\u2583\u2584\u2584\u2585\u2584",trc:"flat",st:"under"}],
+  aiq:"Anything to watch on Harbor Retail Co.?",aia:"Broadly healthy (<b>71, \u25b21</b>). One watch item: <b>Identity Resolution (RampID) utilization at 51%</b>. No billing mismatches and renewal is 155 days out.",
+  insights:[["risk", "⚠ Adoption · CSM", "Identity Resolution (RampID) utilization slipping", "A contracted product dipped to 51% — worth a nudge before it affects renewal.", "→ Share Identity Resolution (RampID) best-practices"], ["grow", "↗ Expansion · Sales", "Strong core adoption", "Healthy usage on core products is a proof point for a cross-sell.", "→ Explore Measurement add-on"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes expected.", "→ No action needed"]],
+  narr:"Harbor Retail Co. is a stable account at <b>71 (▲1)</b> with strong core usage. The single watch item is <b>Identity Resolution (RampID) slipping to 51%</b>. Billing is clean and renewal is 155 days out — a good candidate for a light-touch adoption nudge and a cross-sell conversation."},
+{id:"cedargrocerygr",name:"Cedar Grocery Group",sub:"Grocery \u00b7 CSM: Dana Kim \u00b7 SFDC #A-11096",av:"CG",acv:"$430K",ten:"3.9 yrs",ren:"140 days",renColor:'var(--green)',
+  delta:1,
+  drivers:[["Utilization",68,2,COL.amber,["identity"]],["Product Adoption",63,-2,COL.amber,[]],["ROI / Value",76,3,COL.green,[]],["Payment / AR",82,0,COL.green,[]],["Relationship",64,1,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:80,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:72,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:46,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"}],
+  aiq:"Anything to watch on Cedar Grocery Group?",aia:"Broadly healthy (<b>70, \u25b21</b>). One watch item: <b>Identity Resolution (RampID) utilization at 46%</b>. No billing mismatches and renewal is 140 days out.",
+  insights:[["risk", "⚠ Adoption · CSM", "Identity Resolution (RampID) utilization slipping", "A contracted product dipped to 46% — worth a nudge before it affects renewal.", "→ Share Identity Resolution (RampID) best-practices"], ["grow", "↗ Expansion · Sales", "Strong core adoption", "Healthy usage on core products is a proof point for a cross-sell.", "→ Explore Measurement add-on"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes expected.", "→ No action needed"]],
+  narr:"Cedar Grocery Group is a stable account at <b>70 (▲1)</b> with strong core usage. The single watch item is <b>Identity Resolution (RampID) slipping to 46%</b>. Billing is clean and renewal is 140 days out — a good candidate for a light-touch adoption nudge and a cross-sell conversation."},
+{id:"ironcladlogist",name:"Ironclad Logistics",sub:"Logistics \u00b7 CSM: Sofia Alvarez \u00b7 SFDC #A-11233",av:"IL",acv:"$360K",ten:"5.4 yrs",ren:"190 days",renColor:'var(--green)',
+  delta:1,
+  drivers:[["Utilization",69,2,COL.amber,["identity"]],["Product Adoption",64,-2,COL.amber,[]],["ROI / Value",76,3,COL.green,[]],["Payment / AR",84,0,COL.green,[]],["Relationship",68,1,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:80,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:72,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:40,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:1,bl:1,util:64,tr:"\u2583\u2584\u2584\u2585\u2584",trc:"flat",st:"under"}],
+  aiq:"Anything to watch on Ironclad Logistics?",aia:"Broadly healthy (<b>71, \u25b21</b>). One watch item: <b>Identity Resolution (RampID) utilization at 40%</b>. No billing mismatches and renewal is 190 days out.",
+  insights:[["risk", "⚠ Adoption · CSM", "Identity Resolution (RampID) utilization slipping", "A contracted product dipped to 40% — worth a nudge before it affects renewal.", "→ Share Identity Resolution (RampID) best-practices"], ["grow", "↗ Expansion · Sales", "Strong core adoption", "Healthy usage on core products is a proof point for a cross-sell.", "→ Explore Measurement add-on"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes expected.", "→ No action needed"]],
+  narr:"Ironclad Logistics is a stable account at <b>71 (▲1)</b> with strong core usage. The single watch item is <b>Identity Resolution (RampID) slipping to 40%</b>. Billing is clean and renewal is 190 days out — a good candidate for a light-touch adoption nudge and a cross-sell conversation."},
+{id:"northstarbank",name:"Northstar Bank",sub:"Banking \u00b7 CSM: James Okoro \u00b7 SFDC #A-11370",av:"NB",acv:"$720K",ten:"6.0 yrs",ren:"210 days",renColor:'var(--green)',
+  delta:1,
+  drivers:[["Utilization",68,2,COL.amber,["identity"]],["Product Adoption",62,-2,COL.amber,[]],["ROI / Value",73,3,COL.green,[]],["Payment / AR",80,0,COL.green,[]],["Relationship",69,1,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:80,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"healthy"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:72,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:48,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"}],
+  aiq:"Anything to watch on Northstar Bank?",aia:"Broadly healthy (<b>69, \u25b21</b>). One watch item: <b>Identity Resolution (RampID) utilization at 48%</b>. No billing mismatches and renewal is 210 days out.",
+  insights:[["risk", "⚠ Adoption · CSM", "Identity Resolution (RampID) utilization slipping", "A contracted product dipped to 48% — worth a nudge before it affects renewal.", "→ Share Identity Resolution (RampID) best-practices"], ["grow", "↗ Expansion · Sales", "Strong core adoption", "Healthy usage on core products is a proof point for a cross-sell.", "→ Explore Measurement add-on"], ["fin", "⇄ Reconciliation · Finance", "Clean billing alignment", "All lines reconcile — no disputes expected.", "→ No action needed"]],
+  narr:"Northstar Bank is a stable account at <b>69 (▲1)</b> with strong core usage. The single watch item is <b>Identity Resolution (RampID) slipping to 48%</b>. Billing is clean and renewal is 210 days out — a good candidate for a light-touch adoption nudge and a cross-sell conversation."},
+{id:"northwindappar",name:"Northwind Apparel Group",sub:"Retail & CPG \u00b7 CSM: Wei Chen \u00b7 SFDC #A-11507",av:"NA",acv:"$480K",ten:"3.2 yrs",ren:"62 days",renColor:COL.amber,
+  delta:-2,
+  drivers:[["Utilization",61,-5,COL.amber,["marketplace", "measurement"]],["Product Adoption",65,-1,COL.amber,["marketplace"]],["ROI / Value",68,-2,COL.amber,[]],["Payment / AR",84,0,COL.green,[]],["Relationship",73,0,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:77,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:64,tr:"\u2584\u2584\u2585\u2585\u2585",trc:"flat",st:"under"},{id:"marketplace",n:"Data Marketplace",c:"data",b:1,u:0,bl:1,util:6,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"billnouse"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:26,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"usenobill"}],
+  aiq:"What\u2019s driving Northwind Apparel Group\u2019s dip?",aia:"Minor dip (<b>68 (\u25bc2)</b>) mostly from <b>Data Marketplace billed at 6% usage</b> dragging utilization; offset by <b>Measurement being trialed without a contract</b> (an upsell). Renewal in 62 days.",
+  insights:[["fin", "⇄ Reconciliation · Finance", "Data Marketplace billed at 6%", "A contracted product barely used — reconcile before the 62 days renewal.", "→ Open reconciliation review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert to a paid line.", "→ Draft Measurement quote"], ["risk", "⚠ Renewal · CSM", "Renewal in 62 days", "Address the mismatch proactively to protect the renewal.", "→ Schedule value review"]],
+  narr:"Northwind Apparel Group dipped slightly to <b>68 (▼2)</b>, driven mostly by <b>Data Marketplace being billed at just 6% usage</b>. Core products remain healthy, and the client is <b>trialing Measurement without a contract</b> — an upsell opportunity. With renewal 62 days out, recommend a Finance reconciliation pass and a Measurement conversion conversation."},
+{id:"summithealthsy",name:"Summit Health Systems",sub:"Healthcare \u00b7 CSM: Priya Nair \u00b7 SFDC #A-11644",av:"SH",acv:"$540K",ten:"4.0 yrs",ren:"88 days",renColor:COL.amber,
+  delta:-2,
+  drivers:[["Utilization",57,-5,COL.amber,["marketplace", "measurement"]],["Product Adoption",64,-1,COL.amber,["marketplace"]],["ROI / Value",65,-2,COL.amber,[]],["Payment / AR",84,0,COL.green,[]],["Relationship",69,0,COL.amber,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:77,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:64,tr:"\u2583\u2584\u2584\u2585\u2584",trc:"flat",st:"under"},{id:"marketplace",n:"Data Marketplace",c:"data",b:1,u:0,bl:1,util:6,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"billnouse"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:24,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"usenobill"}],
+  aiq:"What\u2019s driving Summit Health Systems\u2019s dip?",aia:"Minor dip (<b>66 (\u25bc2)</b>) mostly from <b>Data Marketplace billed at 6% usage</b> dragging utilization; offset by <b>Measurement being trialed without a contract</b> (an upsell). Renewal in 88 days.",
+  insights:[["fin", "⇄ Reconciliation · Finance", "Data Marketplace billed at 6%", "A contracted product barely used — reconcile before the 88 days renewal.", "→ Open reconciliation review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert to a paid line.", "→ Draft Measurement quote"], ["risk", "⚠ Renewal · CSM", "Renewal in 88 days", "Address the mismatch proactively to protect the renewal.", "→ Schedule value review"]],
+  narr:"Summit Health Systems dipped slightly to <b>66 (▼2)</b>, driven mostly by <b>Data Marketplace being billed at just 6% usage</b>. Core products remain healthy, and the client is <b>trialing Measurement without a contract</b> — an upsell opportunity. With renewal 88 days out, recommend a Finance reconciliation pass and a Measurement conversion conversation."},
+{id:"deltapharma",name:"Delta Pharma",sub:"Pharma \u00b7 CSM: Marco Ruiz \u00b7 SFDC #A-11781",av:"DP",acv:"$960K",ten:"5.7 yrs",ren:"120 days",renColor:'var(--green)',
+  delta:-2,
+  drivers:[["Utilization",60,-5,COL.amber,["marketplace", "measurement"]],["Product Adoption",67,-1,COL.amber,["marketplace"]],["ROI / Value",63,-2,COL.amber,[]],["Payment / AR",89,0,COL.green,[]],["Relationship",70,0,COL.green,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:77,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:64,tr:"\u2584\u2584\u2585\u2585\u2585",trc:"flat",st:"under"},{id:"marketplace",n:"Data Marketplace",c:"data",b:1,u:0,bl:1,util:7,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"billnouse"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:26,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"usenobill"}],
+  aiq:"What\u2019s driving Delta Pharma\u2019s dip?",aia:"Minor dip (<b>68 (\u25bc2)</b>) mostly from <b>Data Marketplace billed at 7% usage</b> dragging utilization; offset by <b>Measurement being trialed without a contract</b> (an upsell). Renewal in 120 days.",
+  insights:[["fin", "⇄ Reconciliation · Finance", "Data Marketplace billed at 7%", "A contracted product barely used — reconcile before the 120 days renewal.", "→ Open reconciliation review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert to a paid line.", "→ Draft Measurement quote"], ["risk", "⚠ Renewal · CSM", "Renewal in 120 days", "Address the mismatch proactively to protect the renewal.", "→ Schedule value review"]],
+  narr:"Delta Pharma dipped slightly to <b>68 (▼2)</b>, driven mostly by <b>Data Marketplace being billed at just 7% usage</b>. Core products remain healthy, and the client is <b>trialing Measurement without a contract</b> — an upsell opportunity. With renewal 120 days out, recommend a Finance reconciliation pass and a Measurement conversion conversation."},
+{id:"pinnaclefitnes",name:"Pinnacle Fitness",sub:"Wellness \u00b7 CSM: Dana Kim \u00b7 SFDC #A-11918",av:"PF",acv:"$210K",ten:"0.9 yrs",ren:"150 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",57,6,COL.amber,["datacollab", "identity", "measurement"]],["Product Adoption",57,4,COL.amber,["identity"]],["ROI / Value",60,3,COL.amber,[]],["Payment / AR",72,1,COL.green,[]],["Relationship",63,2,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:55,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"under"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:54,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"under"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:33,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"gap"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:24,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"usenobill"}],
+  aiq:"How is Pinnacle Fitness\u2019s onboarding tracking?",aia:"Ramping (<b>60, \u25b24</b>). Adoption climbing on <b>Activation / Destinations (55%)</b>, with <b>Measurement</b> being trialed and still to convert. Renewal 150 days out.",
+  insights:[["grow", "↗ Adoption · CSM", "Activation / Destinations adoption climbing", "Usage on Activation / Destinations is trending up — reinforce the momentum with enablement.", "→ Run onboarding milestone review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert once adoption stabilizes.", "→ Line up Measurement quote"], ["risk", "⚠ Onboarding · CSM", "Identity Resolution (RampID) still ramping", "Identity Resolution (RampID) at 33% — ensure onboarding completes to protect first renewal.", "→ Technical enablement session"]],
+  narr:"Pinnacle Fitness is a newer account ramping at <b>60 (▲4)</b>, with adoption climbing on <b>Activation / Destinations</b> and <b>Measurement being trialed without a contract</b>. <b>Identity Resolution (RampID) is still ramping at 33%</b>. Renewal is 150 days out — focus on onboarding completion and a Measurement conversion."},
+{id:"auroracosmetic",name:"Aurora Cosmetics",sub:"Beauty \u00b7 CSM: Sofia Alvarez \u00b7 SFDC #A-12055",av:"AC",acv:"$330K",ten:"1.3 yrs",ren:"175 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",60,6,COL.amber,["identity", "measurement"]],["Product Adoption",53,4,COL.amber,[]],["ROI / Value",62,3,COL.amber,[]],["Payment / AR",76,1,COL.green,[]],["Relationship",61,2,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:58,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"under"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:42,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"under"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:24,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"usenobill"}],
+  aiq:"How is Aurora Cosmetics\u2019s onboarding tracking?",aia:"Ramping (<b>61, \u25b24</b>). Adoption climbing on <b>Activation / Destinations (58%)</b>, with <b>Measurement</b> being trialed and still to convert. Renewal 175 days out.",
+  insights:[["grow", "↗ Adoption · CSM", "Activation / Destinations adoption climbing", "Usage on Activation / Destinations is trending up — reinforce the momentum with enablement.", "→ Run onboarding milestone review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert once adoption stabilizes.", "→ Line up Measurement quote"], ["risk", "⚠ Onboarding · CSM", "Identity Resolution (RampID) still ramping", "Identity Resolution (RampID) at 42% — ensure onboarding completes to protect first renewal.", "→ Technical enablement session"]],
+  narr:"Aurora Cosmetics is a newer account ramping at <b>61 (▲4)</b>, with adoption climbing on <b>Activation / Destinations</b> and <b>Measurement being trialed without a contract</b>. <b>Identity Resolution (RampID) is still ramping at 42%</b>. Renewal is 175 days out — focus on onboarding completion and a Measurement conversion."},
+{id:"riverstonehote",name:"Riverstone Hotels",sub:"Hospitality \u00b7 CSM: James Okoro \u00b7 SFDC #A-12192",av:"RH",acv:"$390K",ten:"1.1 yrs",ren:"205 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",60,6,COL.amber,["identity", "measurement"]],["Product Adoption",59,4,COL.amber,[]],["ROI / Value",60,3,COL.amber,[]],["Payment / AR",75,1,COL.green,[]],["Relationship",67,2,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:66,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"healthy"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:41,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"under"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:26,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"usenobill"}],
+  aiq:"How is Riverstone Hotels\u2019s onboarding tracking?",aia:"Ramping (<b>63, \u25b24</b>). Adoption climbing on <b>Activation / Destinations (66%)</b>, with <b>Measurement</b> being trialed and still to convert. Renewal 205 days out.",
+  insights:[["grow", "↗ Adoption · CSM", "Activation / Destinations adoption climbing", "Usage on Activation / Destinations is trending up — reinforce the momentum with enablement.", "→ Run onboarding milestone review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert once adoption stabilizes.", "→ Line up Measurement quote"], ["risk", "⚠ Onboarding · CSM", "Identity Resolution (RampID) still ramping", "Identity Resolution (RampID) at 41% — ensure onboarding completes to protect first renewal.", "→ Technical enablement session"]],
+  narr:"Riverstone Hotels is a newer account ramping at <b>63 (▲4)</b>, with adoption climbing on <b>Activation / Destinations</b> and <b>Measurement being trialed without a contract</b>. <b>Identity Resolution (RampID) is still ramping at 41%</b>. Renewal is 205 days out — focus on onboarding completion and a Measurement conversion."},
+{id:"quantumgaming",name:"Quantum Gaming",sub:"Gaming \u00b7 CSM: Wei Chen \u00b7 SFDC #A-12329",av:"QG",acv:"$450K",ten:"1.6 yrs",ren:"230 days",renColor:'var(--green)',
+  delta:4,
+  drivers:[["Utilization",56,6,COL.amber,["identity", "measurement"]],["Product Adoption",56,4,COL.amber,[]],["ROI / Value",59,3,COL.amber,[]],["Payment / AR",77,1,COL.green,[]],["Relationship",63,2,COL.amber,[]]],
+  products:[{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:1,bl:1,util:70,tr:"\u2585\u2586\u2587\u2587\u2588",trc:"up",st:"healthy"},{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:60,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"under"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:0.5,bl:1,util:44,tr:"\u2581\u2583\u2585\u2586\u2588",trc:"up",st:"under"},{id:"measurement",n:"Measurement",c:"analytics",b:0,u:0.5,bl:0,util:30,tr:"\u2584\u2585\u2585\u2586\u2586",trc:"up",st:"usenobill"}],
+  aiq:"How is Quantum Gaming\u2019s onboarding tracking?",aia:"Ramping (<b>60, \u25b24</b>). Adoption climbing on <b>Activation / Destinations (70%)</b>, with <b>Measurement</b> being trialed and still to convert. Renewal 230 days out.",
+  insights:[["grow", "↗ Adoption · CSM", "Activation / Destinations adoption climbing", "Usage on Activation / Destinations is trending up — reinforce the momentum with enablement.", "→ Run onboarding milestone review"], ["grow", "↗ Expansion · Sales", "Measurement used, not owned", "Client is trialing this without a contract — convert once adoption stabilizes.", "→ Line up Measurement quote"], ["risk", "⚠ Onboarding · CSM", "Identity Resolution (RampID) still ramping", "Identity Resolution (RampID) at 44% — ensure onboarding completes to protect first renewal.", "→ Technical enablement session"]],
+  narr:"Quantum Gaming is a newer account ramping at <b>60 (▲4)</b>, with adoption climbing on <b>Activation / Destinations</b> and <b>Measurement being trialed without a contract</b>. <b>Identity Resolution (RampID) is still ramping at 44%</b>. Renewal is 230 days out — focus on onboarding completion and a Measurement conversion."},
+{id:"vertexmediahol",name:"Vertex Media Holdings",sub:"Media & Entertainment \u00b7 CSM: Priya Nair \u00b7 SFDC #A-12466",av:"VM",acv:"$620K",ten:"1.4 yrs",ren:"34 days",renColor:COL.red,
+  delta:-11,
+  drivers:[["Utilization",36,-18,COL.red,["datacollab", "activation", "measurement"]],["Product Adoption",38,-10,COL.red,["activation", "measurement"]],["ROI / Value",52,-6,COL.amber,[]],["Payment / AR",60,-8,COL.amber,["ar"]],["Relationship",60,-3,COL.amber,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:61,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:0.5,bl:1,util:21,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"gap"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:0,bl:1,util:8,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"billnouse"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:41,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"}],
+  aiq:"How urgent is Vertex Media Holdings, and why?",aia:"<b>Critical.</b> Score dropped <b>11 pts to 46</b> with renewal in <b>34 days</b>, broad utilization decline, an <b>overdue AR balance</b>, and <b>Measurement billed at 8% usage</b>. Needs immediate cross-functional intervention.",
+  insights:[["risk", "⚠ Renewal Risk · CSM", "Renewal in 34 days, score falling", "Utilization down across the board — high churn probability.", "→ Escalate to exec sponsor now"], ["fin", "⇄ Reconciliation · Finance", "Overdue AR + billing mismatch", "Payment slippage plus Measurement billed at 8% compounds renewal risk.", "→ AR follow-up + reconciliation"], ["risk", "⚠ Adoption · CSM", "Measurement collapsed to 8%", "A core product’s usage is cratering — likely an onboarding or integration failure.", "→ Technical enablement session"]],
+  narr:"Vertex Media Holdings is an urgent account: <b>46 (▼11)</b> with renewal in just <b>34 days</b>. Utilization is falling across products, <b>Measurement collapsed to 8%</b>, and <b>Measurement is billed at only 8% usage</b>. Combined with an overdue AR balance, this is a red account needing immediate CSM escalation, a Finance AR + reconciliation pass, and technical enablement."},
+{id:"emberfoods",name:"Ember Foods",sub:"QSR \u00b7 CSM: Marco Ruiz \u00b7 SFDC #A-12603",av:"EF",acv:"$380K",ten:"2.1 yrs",ren:"48 days",renColor:COL.amber,
+  delta:-11,
+  drivers:[["Utilization",38,-18,COL.red,["datacollab", "activation", "measurement"]],["Product Adoption",38,-10,COL.red,["activation", "measurement"]],["ROI / Value",58,-6,COL.amber,[]],["Payment / AR",58,-8,COL.amber,["ar"]],["Relationship",58,-3,COL.amber,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:55,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"under"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:0.5,bl:1,util:20,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"gap"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:0,bl:1,util:4,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"billnouse"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:41,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"under"}],
+  aiq:"How urgent is Ember Foods, and why?",aia:"<b>Critical.</b> Score dropped <b>11 pts to 47</b> with renewal in <b>48 days</b>, broad utilization decline, an <b>overdue AR balance</b>, and <b>Measurement billed at 4% usage</b>. Needs immediate cross-functional intervention.",
+  insights:[["risk", "⚠ Renewal Risk · CSM", "Renewal in 48 days, score falling", "Utilization down across the board — high churn probability.", "→ Escalate to exec sponsor now"], ["fin", "⇄ Reconciliation · Finance", "Overdue AR + billing mismatch", "Payment slippage plus Measurement billed at 4% compounds renewal risk.", "→ AR follow-up + reconciliation"], ["risk", "⚠ Adoption · CSM", "Measurement collapsed to 4%", "A core product’s usage is cratering — likely an onboarding or integration failure.", "→ Technical enablement session"]],
+  narr:"Ember Foods is an urgent account: <b>47 (▼11)</b> with renewal in just <b>48 days</b>. Utilization is falling across products, <b>Measurement collapsed to 4%</b>, and <b>Measurement is billed at only 4% usage</b>. Combined with an overdue AR balance, this is a red account needing immediate CSM escalation, a Finance AR + reconciliation pass, and technical enablement."},
+{id:"halcyontravel",name:"Halcyon Travel",sub:"Travel \u00b7 CSM: Dana Kim \u00b7 SFDC #A-12740",av:"HT",acv:"$560K",ten:"2.4 yrs",ren:"40 days",renColor:COL.red,
+  delta:-11,
+  drivers:[["Utilization",36,-18,COL.red,["datacollab", "activation", "measurement"]],["Product Adoption",41,-10,COL.red,["activation", "measurement"]],["ROI / Value",53,-6,COL.amber,[]],["Payment / AR",62,-8,COL.amber,["ar"]],["Relationship",61,-3,COL.amber,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:56,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"under"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:0.5,bl:1,util:15,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"gap"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:0,bl:1,util:6,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"billnouse"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:46,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"under"}],
+  aiq:"How urgent is Halcyon Travel, and why?",aia:"<b>Critical.</b> Score dropped <b>11 pts to 47</b> with renewal in <b>40 days</b>, broad utilization decline, an <b>overdue AR balance</b>, and <b>Measurement billed at 6% usage</b>. Needs immediate cross-functional intervention.",
+  insights:[["risk", "⚠ Renewal Risk · CSM", "Renewal in 40 days, score falling", "Utilization down across the board — high churn probability.", "→ Escalate to exec sponsor now"], ["fin", "⇄ Reconciliation · Finance", "Overdue AR + billing mismatch", "Payment slippage plus Measurement billed at 6% compounds renewal risk.", "→ AR follow-up + reconciliation"], ["risk", "⚠ Adoption · CSM", "Measurement collapsed to 6%", "A core product’s usage is cratering — likely an onboarding or integration failure.", "→ Technical enablement session"]],
+  narr:"Halcyon Travel is an urgent account: <b>47 (▼11)</b> with renewal in just <b>40 days</b>. Utilization is falling across products, <b>Measurement collapsed to 6%</b>, and <b>Measurement is billed at only 6% usage</b>. Combined with an overdue AR balance, this is a red account needing immediate CSM escalation, a Finance AR + reconciliation pass, and technical enablement."},
+{id:"nimbussaas",name:"Nimbus SaaS",sub:"Technology \u00b7 CSM: Sofia Alvarez \u00b7 SFDC #A-12877",av:"NS",acv:"$700K",ten:"1.8 yrs",ren:"55 days",renColor:COL.amber,
+  delta:-11,
+  drivers:[["Utilization",38,-18,COL.red,["datacollab", "activation", "measurement"]],["Product Adoption",40,-10,COL.red,["activation", "measurement"]],["ROI / Value",58,-6,COL.amber,[]],["Payment / AR",62,-8,COL.amber,["ar"]],["Relationship",59,-3,COL.amber,[]]],
+  products:[{id:"datacollab",n:"Data Collaboration",c:"clean-room",b:1,u:1,bl:1,util:63,tr:"\u2588\u2587\u2586\u2585\u2584",trc:"down",st:"under"},{id:"activation",n:"Activation / Destinations",c:"activation",b:1,u:0.5,bl:1,util:17,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"gap"},{id:"measurement",n:"Measurement",c:"analytics",b:1,u:0,bl:1,util:7,tr:"\u2588\u2586\u2585\u2583\u2582",trc:"down",st:"billnouse"},{id:"identity",n:"Identity Resolution (RampID)",c:"identity",b:1,u:1,bl:1,util:43,tr:"\u2586\u2584\u2583\u2582\u2581",trc:"down",st:"under"}],
+  aiq:"How urgent is Nimbus SaaS, and why?",aia:"<b>Critical.</b> Score dropped <b>11 pts to 48</b> with renewal in <b>55 days</b>, broad utilization decline, an <b>overdue AR balance</b>, and <b>Measurement billed at 7% usage</b>. Needs immediate cross-functional intervention.",
+  insights:[["risk", "⚠ Renewal Risk · CSM", "Renewal in 55 days, score falling", "Utilization down across the board — high churn probability.", "→ Escalate to exec sponsor now"], ["fin", "⇄ Reconciliation · Finance", "Overdue AR + billing mismatch", "Payment slippage plus Measurement billed at 7% compounds renewal risk.", "→ AR follow-up + reconciliation"], ["risk", "⚠ Adoption · CSM", "Measurement collapsed to 7%", "A core product’s usage is cratering — likely an onboarding or integration failure.", "→ Technical enablement session"]],
+  narr:"Nimbus SaaS is an urgent account: <b>48 (▼11)</b> with renewal in just <b>55 days</b>. Utilization is falling across products, <b>Measurement collapsed to 7%</b>, and <b>Measurement is billed at only 7% usage</b>. Combined with an overdue AR balance, this is a red account needing immediate CSM escalation, a Finance AR + reconciliation pass, and technical enablement."}
+];
+
+// per-product metric metadata (unit + monthly contracted base)
+const PMETA={
+ datacollab:{unit:'queries/mo',base:420,mil:false},
+ activation:{unit:'destinations',base:58,mil:false},
+ identity:{unit:'records matched/mo',base:240,mil:true},
+ measurement:{unit:'reports/mo',base:130,mil:false},
+ marketplace:{unit:'data records/mo',base:75,mil:true},
+ ctv:{unit:'impressions/mo',base:160,mil:true}
+};
+const SCALE={"orionautogroup": 1.6, "meridianairlin": 2.75, "cascadebeverag": 1.9, "atlasfinancial": 2.4, "lumenstreaming": 1.42, "vaultlineinsur": 1.75, "brightwavetele": 2.58, "harborretailco": 0.61, "cedargrocerygr": 0.9, "ironcladlogist": 0.75, "northstarbank": 1.5, "northwindappar": 1.0, "summithealthsy": 1.12, "deltapharma": 2.0, "pinnaclefitnes": 0.5, "auroracosmetic": 0.69, "riverstonehote": 0.81, "quantumgaming": 0.94, "vertexmediahol": 1.29, "emberfoods": 0.79, "halcyontravel": 1.17, "nimbussaas": 1.46};
+// weighted health model (weights sum to 100%), aligned to driver order:
+// [Utilization, Product Adoption, ROI/Value, Payment/AR, Relationship]
+const WEIGHTS=[0.30,0.25,0.20,0.15,0.10];
+function computeScore(c){ return Math.round(c.drivers.reduce((t,d,i)=>t+d[1]*WEIGHTS[i],0)); }
+function fmtN(v,mil){ if(mil){ return v>=1000?(v/1000).toFixed(1).replace(/\.0$/,'')+'B':v+'M'; } return v.toLocaleString('en-US'); }
+function usageStr(p){
+  const m=PMETA[p.id]; if(!m) return '';
+  const sc=(current&&current.scale)||1;
+  const contracted=Math.round(m.base*sc);
+  const used=Math.round(p.util/100*contracted);
+  return p.b>=1
+    ? fmtN(used,m.mil)+' / '+fmtN(contracted,m.mil)+' '+m.unit
+    : fmtN(used,m.mil)+' '+m.unit+' \u00b7 no contract';
+}
+
+const portRows=document.getElementById('port-rows');
+function renderPortfolio(){
+  CLIENTS.forEach(c=>c.score=computeScore(c));
+  portRows.innerHTML=CLIENTS.slice().sort((a,b)=>a.score-b.score).map(c=>{
+    const [stTxt,stCls]=statusBadge(c.score);
+    const used=c.products.filter(p=>p.u>=1).length, own=c.products.filter(p=>p.b>=1).length;
+    const flags=c.products.filter(p=>p.st==='billnouse'||p.st==='usenobill'||p.st==='gap'||p.st==='over').length;
+    const dc=c.delta>0?'up':c.delta<0?'down':'flat', ds=c.delta>0?'▲':c.delta<0?'▼':'▬';
+    return `<tr onclick="openClient('${c.id}')">
+      <td><div class="cname">${c.name}</div><div class="csub">${c.sub}</div></td>
+      <td class="ctr"><span class="score-chip" style="background:${scoreBg(c.score)};color:${scoreColor(c.score)}">${c.score}</span></td>
+      <td><span class="badge ${stCls}">${stTxt}</span> <span class="delta ${dc}">${ds}${Math.abs(c.delta)}</span></td>
+      <td class="num">${c.acv}</td>
+      <td class="ctr" style="color:${c.renColor};font-weight:600">${c.ren}</td>
+      <td class="num">${used} / ${own}</td>
+      <td class="ctr">${flags?`<span class="badge b-purple">${flags}</span>`:'<span class="csub">—</span>'}</td>
+    </tr>`;
+  }).join('');
+  const book=CLIENTS.reduce((t,c)=>t+parseACV(c.acv),0);
+  const atrisk=CLIENTS.filter(c=>c.score<60).length;
+  const ren90=CLIENTS.filter(c=>c.score<60&&renDays(c.ren)<90).length;
+  let mm=0; const mmC=new Set();
+  CLIENTS.forEach(c=>{const n=c.products.filter(p=>p.st==='billnouse'||p.st==='usenobill').length; if(n){mm+=n;mmC.add(c.id);}});
+  let white=0; CLIENTS.forEach(c=>{const a=parseACV(c.acv); c.products.forEach(p=>{if(p.st==='usenobill')white+=a*0.09;});});
+  const S=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+  S('kpi-book',fmtMoney(book)); S('kpi-book-sub','across '+CLIENTS.length+' accounts');
+  S('kpi-atrisk',atrisk); S('kpi-atrisk-sub',ren90+' renewing < 90 days');
+  S('kpi-mismatch',mm); S('kpi-mismatch-sub','across '+mmC.size+' clients');
+  S('kpi-white',fmtMoney(white)); S('client-count',CLIENTS.length);
+}
+function renDays(s){const m=String(s).match(/\d+/);return m?+m[0]:999;}
+
+let current=null, selDriver=null;
+function openClient(id){
+  current=CLIENTS.find(c=>c.id===id); current.scale=SCALE[id]||1; current.score=computeScore(current); selDriver=null;
+  document.getElementById('d-av').textContent=current.av;
+  document.getElementById('d-name').textContent=current.name;
+  { const cb=document.getElementById('d-crumb'); if(cb)cb.textContent=current.name; }
+  document.getElementById('d-sub').textContent=current.sub;
+  document.getElementById('d-acv').textContent=current.acv;
+  document.getElementById('d-ten').textContent=current.ten;
+  const ren=document.getElementById('d-ren'); ren.textContent=current.ren; ren.style.color=current.renColor;
+  const own=current.products.filter(p=>p.b>=1).length, used=current.products.filter(p=>p.u>=1).length;
+  document.getElementById('d-prodcount').textContent=used+' of '+own;
+  // gauge
+  const C=2*Math.PI*65;
+  document.getElementById('d-arc').style.stroke=scoreColor(current.score);
+  document.getElementById('d-arc').style.strokeDashoffset=C*(1-current.score/100);
+  document.getElementById('d-score').textContent=current.score;
+  const [stTxt,stCls]=statusBadge(current.score);
+  const pill=document.getElementById('d-pill'); pill.className='pill '+stCls.replace('b-','st-'); 
+  pill.style.background=scoreBg(current.score); pill.style.color=scoreColor(current.score);
+  pill.innerHTML='● '+stTxt;
+  const tr=document.getElementById('d-trend');
+  tr.innerHTML=(current.delta>0?'▲ +':current.delta<0?'▼ ':'▬ ')+Math.abs(current.delta)+' pts vs. last quarter';
+  tr.style.color=current.delta>0?COL.green:current.delta<0?COL.red:COL.muted;
+  const lastQ=current.score-current.delta;
+  document.getElementById('d-lastq').innerHTML='Last quarter <b>'+lastQ+'</b>  \u2192  today <b>'+current.score+'</b>';
+  // ai bar
+  document.getElementById('d-ai-q').textContent=current.aiq;
+  document.getElementById('d-ai-a').innerHTML=current.aia;
+  // drivers
+  const _sc=(current.scale||1);
+  const _acv=parseACV(current.acv), _mspend=_acv/12;
+  const _owned=current.products.filter(p=>p.b>=1).length;
+  const _usedP=current.products.filter(p=>p.u>=1).length;
+  document.getElementById('d-drivers').innerHTML=current.drivers.map((d,i)=>{
+    const [nm,val,dl,cl,rel]=d; const dc=dl>0?'up':dl<0?'down':'flat';
+    const arrow=dl>0?'▲':dl<0?'▼':'▬';
+    let tip='';
+    if(i===0){ const contr=5.0*_sc, used=val/100*contr;
+      tip=`${used.toFixed(1)}M / ${contr.toFixed(1)}M tokens used this month`; }
+    else if(i===1){ tip=`${_usedP} of ${_owned} products actively used`; }
+    else if(i===2){ const mult=val/40, value=_mspend*mult;
+      tip=`${fmtMoney(value)} value vs ${fmtMoney(_mspend)} spend this month · ${mult.toFixed(1)}x ROI`; }
+    else if(i===3){ if(val>=85){ tip=`$0 overdue · invoices paid on time`; }
+      else { const overdue=_mspend*(100-val)/100, dso=Math.round(30+(100-val)/2);
+        tip=`${fmtMoney(overdue)} overdue · ${dso}-day DSO`; } }
+    else if(i===4){ const stk=Math.max(2,Math.round(val/12)), ex=Math.max(0,Math.round(val/28));
+      tip=`${stk} active stakeholders · ${ex} exec touchpoints (QTD)`; }
+    const info = tip?`<span class="info" data-tip="${tip}">&#9432;</span>`:'';
+    return `<div class="driver" data-i="${i}" onclick="toggleDriver(${i})">
+      <span class="dn">${nm}<span class="wtag">${Math.round(WEIGHTS[i]*100)}%</span>${info}</span>
+      <span class="db"><span style="width:${val}%;background:${cl}"></span></span>
+      <span class="dval" style="color:${cl}">${val}</span>
+      <span class="dd ${dc}">${arrow}${Math.abs(dl)}</span></div>`;
+  }).join('');
+  renderProducts();
+  // insights
+  document.getElementById('d-insights').innerHTML=current.insights.map(x=>
+    `<div class="insight ${x[0]}"><span class="tag">${x[1]}</span><h3>${x[2]}</h3><p>${x[3]}</p><span class="act">${x[4]}</span></div>`).join('');
+  document.getElementById('d-narr').innerHTML=current.narr;
+  show('detail');
+}
+function parseACV(s){ const n=parseFloat(String(s).replace(/[^0-9.]/g,''))||0; return /m/i.test(s)?n*1e6:/k/i.test(s)?n*1e3:n; }
+function fmtMoney(v){ return v>=1e6?'$'+(v/1e6).toFixed(1).replace(/\.0$/,'')+'M':v>=1e3?'$'+Math.round(v/1e3)+'K':'$'+Math.round(v); }
+function renderProducts(){
+  const relSet = selDriver!==null ? new Set(current.drivers[selDriver][4]) : null;
+  document.getElementById('d-prows').innerHTML=current.products.map(p=>{
+    const [bt,bc]=PB[p.st];
+    const mark=v=>v>=1?'<span class="check">✓</span>':v>0?'<span class="part">◐</span>':'<span class="cross">—</span>';
+    const uc=p.util>100?COL.red:p.util>=70?COL.green:p.util>=40?COL.amber:p.util>=15?COL.red:COL.purple;
+    const dim = relSet && !relSet.has(p.id) ? ' dim':'';
+    return `<tr class="prow${dim}">
+      <td><div class="cname">${p.n}</div><div class="csub" style="font-family:var(--mono)">${p.c}</div></td>
+      <td class="ctr">${mark(p.b)}</td><td class="ctr">${mark(p.u)}</td><td class="ctr">${mark(p.bl)}</td>
+      <td class="num"><span class="util"><span class="mini"><span style="width:${Math.min(p.util,100)}%;background:${uc}"></span></span><b style="color:${p.util>100?COL.red:'inherit'}">${p.util}%</b></span><div class="csub" style="font-family:var(--mono);margin-top:4px;white-space:nowrap">${usageStr(p)}</div></td>
+      <td class="ctr spark ${p.trc}">${p.tr}</td>
+      <td><span class="badge ${bc}">${bt}</span></td></tr>`;
+  }).join('');
+}
+function toggleDriver(i){
+  selDriver = selDriver===i?null:i;
+  document.querySelectorAll('.driver').forEach(d=>d.classList.toggle('sel',+d.dataset.i===selDriver));
+  const lbl=document.getElementById('d-driver-lbl');
+  lbl.textContent = selDriver!==null && current.drivers[selDriver][4].length ? 'showing products driving: '+current.drivers[selDriver][0] : (selDriver!==null?'no product-specific driver':'');
+  renderProducts();
+}
+function show(v){
+  const views={port:'view-port',detail:'view-detail',trends:'view-trends',upsell:'view-upsell',margin:'view-margin',alerts:'view-alerts',value:'view-value'};
+  const tabs={port:'tab-port',trends:'tab-trends',upsell:'tab-upsell',margin:'tab-margin',alerts:'tab-alerts',value:'tab-value'};
+  for(const k in views){const e=document.getElementById(views[k]); if(e)e.classList.toggle('hidden',k!==v);}
+  for(const k in tabs){const e=document.getElementById(tabs[k]); if(e)e.classList.toggle('active',k===v);}
+  if(v==='trends')renderTrends();
+  if(v==='upsell')renderUpsell();
+  if(v==='margin')renderMargin();
+  if(v==='alerts')renderAlerts();
+  if(v==='value')renderValue();
+  window.scrollTo(0,0);
+}
+// fake NL query -> jump to matching insight
+document.getElementById('q').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return; e.preventDefault();
+  const t=e.target.value.toLowerCase();
+  const byScore=dir=>CLIENTS.slice().sort((a,b)=>dir*(a.score-b.score))[0];
+  const hasSt=(c,st)=>c.products.some(p=>p.st===st);
+  let target=null;
+  if(t.includes('billed')&&(t.includes("don't")||t.includes('not')||t.includes('mismatch'))) target=CLIENTS.find(c=>hasSt(c,'billnouse'));
+  else if(t.includes('overage')||(t.includes('over')&&t.includes('usage'))) target=CLIENTS.find(c=>hasSt(c,'over'));
+  else if(t.includes('expansion')||t.includes('upsell')||t.includes('grow')||t.includes('whitespace')) target=CLIENTS.filter(c=>hasSt(c,'usenobill')).sort((a,b)=>b.score-a.score)[0];
+  else if(t.includes('risk')||t.includes('urgent')||t.includes('churn')||t.includes('renew')) target=byScore(1);
+  else if(t.includes('best')||t.includes('reference')||t.includes('healthiest')||t.includes('advocate')) target=byScore(-1);
+  if(target)openClient(target.id);
+});
+function renderTrends(){
+  const sel=document.getElementById('trend-client');
+  if(!sel.options.length) sel.innerHTML=CLIENTS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(!sel.value) sel.value=(current&&current.id)||CLIENTS[0].id;
+  const c=CLIENTS.find(x=>x.id===sel.value)||CLIENTS[0];
+  const sc=SCALE[c.id]||1;
+  const FACT={up:[0.62,0.71,0.80,0.88,0.94,1.0],down:[1.42,1.29,1.18,1.10,1.04,1.0],flat:[0.97,1.02,0.99,1.03,0.98,1.0]};
+  let ups=0,risks=0,over=0;
+  const rows=c.products.map(p=>{
+    const m=PMETA[p.id]; const contr=(m?m.base:100)*sc; const latest=p.util/100*contr;
+    const f=FACT[p.trc]||FACT.flat; const series=f.map(x=>latest*x);
+    const cells=series.map(v=>`<td class="num" style="font-family:var(--mono)">${fmtN(Math.round(v),m&&m.mil)}</td>`).join('');
+    const mom=series[4]?((series[5]-series[4])/series[4]*100):0;
+    const vsCommit=p.util-100;
+    let sig,scls;
+    if(p.util>100){sig='⚡ Over-usage';scls='b-over';over++;}
+    else if(p.trc==='up'&&p.util>=55){sig='Upsell';scls='b-green';ups++;}
+    else if(p.trc==='up'){sig='Growing';scls='b-green';}
+    else if(p.trc==='down'){sig='Risk';scls='b-red';risks++;}
+    else{sig='Stable';scls='b-amber';}
+    const mc=mom>1?'up':mom<-1?'down':'flat';
+    const vc=vsCommit>0?'down':'flat';
+    const vtxt=(vsCommit>0?'+':'')+vsCommit+'%';
+    return `<tr><td><div class="cname">${p.n}</div><div class="csub" style="font-family:var(--mono)">${m?m.unit:''}</div></td>
+      ${cells}
+      <td class="ctr spark ${p.trc}">${p.tr}</td>
+      <td class="num ${mc}">${mom>0?'+':''}${mom.toFixed(0)}%</td>
+      <td class="num" style="color:${p.util>100?'var(--red)':'var(--muted)'};font-weight:${p.util>100?'700':'400'}">${p.util>100?vtxt:p.util+'%'}</td>
+      <td><span class="badge ${scls}">${sig}</span></td></tr>`;
+  }).join('');
+  document.getElementById('trend-rows').innerHTML=rows;
+  document.getElementById('trend-kpis').innerHTML=
+    (over?`<span class="badge b-over">${over} over-usage</span>`:'')+
+    `<span class="badge b-green">${ups} upsell signal${ups!==1?'s':''}</span><span class="badge b-red">${risks} risk signal${risks!==1?'s':''}</span>`;
+}
+function renderUpsell(){
+  let total=0; const R=[];
+  CLIENTS.forEach(c=>{ const sc=SCALE[c.id]||1, acv=parseACV(c.acv);
+    c.products.forEach(p=>{ const m=PMETA[p.id]; const contr=(m?m.base:100)*sc; const used=p.util/100*contr; const unit=m?m.unit:'';
+      if(p.util>100){ const ov=p.util-100; const uplift=acv*0.10*(ov/15);
+        R.push([c.name,p.n,'\u26a1 Over-usage','b-over',fmtN(Math.round(contr),m&&m.mil)+' '+unit,fmtN(Math.round(used),m&&m.mil)+' '+unit,'Upgrade tier +'+(Math.ceil(ov/10)*10)+'%',uplift,'Sales quote \u00b7 Finance overage']); total+=uplift; }
+      else if(p.st==='usenobill'){ const uplift=acv*0.09;
+        R.push([c.name,p.n,'Whitespace','b-purple','no contract',fmtN(Math.round(used),m&&m.mil)+' '+unit,'New product line',uplift,'Sales quote']); total+=uplift; }
+    });
+  });
+  R.sort((a,b)=>b[7]-a[7]);
+  document.getElementById('upsell-rows').innerHTML=R.map(r=>`<tr><td><div class="cname">${r[0]}</div><div class="csub">${r[1]}</div></td><td><span class="badge ${r[3]}">${r[2]}</span></td><td class="csub">${r[4]}</td><td class="csub" style="font-family:var(--mono)">${r[5]}</td><td>${r[6]}</td><td class="num" style="font-weight:700;color:var(--green)">${fmtMoney(r[7])}</td><td class="csub">${r[8]}</td></tr>`).join('');
+  document.getElementById('upsell-kpis').innerHTML=`<span class="badge b-green">${fmtMoney(total)} pipeline uplift</span><span class="badge b-purple">${R.length} plays</span>`;
+}
+function renderMargin(){
+  const base=(+document.getElementById('ms-base').value)/100;
+  const intf=(+document.getElementById('ms-int').value)/100;
+  const overp=(+document.getElementById('ms-over').value)/100;
+  document.getElementById('ms-base-v').textContent=Math.round(base*100)+'%';
+  document.getElementById('ms-int-v').textContent=Math.round(intf*100)+'%';
+  document.getElementById('ms-over-v').textContent=Math.round(overp*100)+'%';
+  let tacv=0,tcost=0,low=0,hidden=0;
+  const rows=CLIENTS.map(c=>{ const acv=parseACV(c.acv);
+    const avg=c.products.reduce((t,p)=>t+p.util,0)/c.products.length;
+    const over=c.products.some(p=>p.util>100);
+    let cr=base+(avg/100)*intf+(over?overp:0); if(cr>0.85)cr=0.85;
+    const cost=acv*cr, margin=acv-cost, mpct=(1-cr)*100;
+    tacv+=acv;tcost+=cost; if(mpct<40)low++;
+    return {name:c.name,acv,cost,margin,mpct,health:c.score};
+  }).sort((a,b)=>a.mpct-b.mpct);
+  document.getElementById('margin-rows').innerHTML=rows.map(r=>{
+    const mc=r.mpct>=50?'b-green':r.mpct>=40?'b-amber':'b-red';
+    const dot=r.health>=75?'\ud83d\udfe2':r.health>=60?'\ud83d\udfe1':'\ud83d\udd34';
+    let fc,ft;
+    if(r.health>=70&&r.mpct<50){fc='mf-hidden';ft='\u26a0 Healthy but low margin';hidden++;}
+    else if(r.mpct<40){fc='mf-low';ft='\ud83d\udd34 Low margin';}
+    else if(r.mpct<50){fc='mf-watch';ft='Watch';}
+    else{fc='mf-ok';ft='\u2713 Healthy margin';}
+    return `<tr><td class="cname">${r.name}</td><td class="num">${fmtMoney(r.acv)}</td><td class="num">${fmtMoney(r.cost)}</td><td class="num">${fmtMoney(r.margin)}</td><td class="num"><span class="badge ${mc}">${r.mpct.toFixed(0)}%</span></td><td class="ctr">${dot} ${r.health}</td><td><span class="mflag ${fc}">${ft}</span></td></tr>`;
+  }).join('');
+  const bookM=((1-tcost/tacv)*100).toFixed(0);
+  document.getElementById('margin-kpis').innerHTML=`<span class="badge b-green">Book margin ${bookM}%</span><span class="badge b-purple">${hidden} healthy but low-margin</span><span class="badge b-red">${low} margin-dilutive</span>`;
+}
+['ms-base','ms-int','ms-over'].forEach(id=>document.addEventListener('input',e=>{if(e.target&&e.target.id===id)renderMargin();}));
+function renderAlerts(){
+  const UPLOAD_TIP="Source: Connect 'Last Upload Date' per audience (Data Management \u2192 Audiences). Pulled from file-ingestion event logs via the Data Pipeline Visibility API, joined to the SFDC account for CSM routing. Baseline cadence from usage_billing history in BigQuery.";
+  function daysSinceUpload(c){let h=0;for(const ch of c.id)h=(h*31+ch.charCodeAt(0))>>>0;return 8+(h%42);}
+  const A=[];
+  CLIENTS.forEach(c=>{
+    const du=daysSinceUpload(c);
+    if(du>45) A.push([c.name,'File ingestion','No file uploaded in '+du+' days \u2014 data feed has gone silent','stale feed \u00b7 '+du+'d',' b-red','High','CSM + Solutions',UPLOAD_TIP]);
+    else if(du>30) A.push([c.name,'File ingestion','No file uploaded in '+du+' days','stale feed \u00b7 '+du+'d','b-amber','Medium','CSM',UPLOAD_TIP]);
+    c.products.forEach(p=>{
+    if(p.trc==='down'&&p.util<40) A.push([c.name,p.n,'Usage collapsed \u2014 likely integration/onboarding failure',(100-p.util)+'% below normal','b-red','High','CSM + Solutions']);
+    else if(p.trc==='down') A.push([c.name,p.n,'Usage declining 3+ months','trending down','b-amber','Medium','CSM']);
+    else if(p.util>100) A.push([c.name,p.n,'Over-usage spike above commit','+'+(p.util-100)+'% over','b-over','Opportunity','Sales + Finance']);
+    else if(p.st==='billnouse') A.push([c.name,p.n,'Billed but not consumed','needs reconciliation','b-purple','Medium','Finance']);
+  });});
+  const ord={High:0,Opportunity:1,Medium:2};
+  A.sort((a,b)=>ord[a[5]]-ord[b[5]]);
+  document.getElementById('alerts-rows').innerHTML=A.map((a,i)=>`<tr><td><span class="badge ${a[4].trim()}">${a[5]}</span></td><td><div class="cname">${a[0]}</div><div class="csub">${a[1]}</div></td><td>${a[2]}${a[7]?` <span class="info wide" data-tip="${a[7]}">&#9432;</span>`:''}</td><td class="csub">${a[3]}</td><td class="csub">${(i%5)+1}d ago</td><td class="csub">${a[6]}</td></tr>`).join('');
+  const hi=A.filter(x=>x[5]==='High').length, op=A.filter(x=>x[5]==='Opportunity').length, md=A.filter(x=>x[5]==='Medium').length;
+  const up=A.filter(x=>x[1]==='File ingestion').length;
+  document.getElementById('alerts-kpis').innerHTML=`<span class="badge b-red">${hi} high</span><span class="badge b-over">${op} opportunity</span><span class="badge b-amber">${md} medium</span><span class="badge b-purple">${up} upload-silence</span>`;
+}
+function renderValue(){
+  const sel=document.getElementById('value-client');
+  if(!sel.options.length) sel.innerHTML=CLIENTS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(!sel.value) sel.value=(current&&current.id)||CLIENTS[0].id;
+  const c=CLIENTS.find(x=>x.id===sel.value)||CLIENTS[0];
+  const sc=SCALE[c.id]||1; const roi=c.drivers[2][1]; const mult=(roi/40).toFixed(1);
+  const owned=c.products.filter(p=>p.b>=1).length, used=c.products.filter(p=>p.u>=1).length;
+  const usedList=c.products.filter(p=>p.u>0).map(p=>{const m=PMETA[p.id];const contr=(m?m.base:100)*sc;const u=p.util/100*contr;return `<li><b>${p.n}</b> \u2014 ${fmtN(Math.round(u),m&&m.mil)} ${m?m.unit:''}</li>`;}).join('');
+  const stk=Math.max(2,Math.round(c.drivers[4][1]/12));
+  document.getElementById('value-report').innerHTML=`<div class="repcard">
+    <div class="rep-head"><div><div class="rep-title">Your LiveRamp Value Summary</div><div class="rep-sub">Prepared for ${c.name} \u00b7 Q3 FY26</div></div><div class="rep-logo">LiveRamp</div></div>
+    <div class="rep-hero"><div><div class="rep-big">${mult}x</div><div class="rep-cap">Return on investment</div></div><div><div class="rep-big">${used}/${owned}</div><div class="rep-cap">Products actively adopted</div></div><div><div class="rep-big">${c.ten}</div><div class="rep-cap">Partnership tenure</div></div></div>
+    <div class="rep-sec"><h4>Value delivered this quarter</h4><ul>${usedList}</ul></div>
+    <div class="rep-sec"><h4>Outcomes</h4><ul><li>Consistent identity resolution and activation across your key destinations</li><li>Measured ROI of ${mult}x against your annual investment</li><li>Dedicated support with ${stk} active stakeholders engaged</li></ul></div>
+    <div class="rep-foot">Generated from your live usage through the current period. Share with your LiveRamp team for a deeper review.</div>
+  </div>`;
+}
+renderPortfolio();
+
+// PDF export
+window.GleanBridge.postMessage({actionId:'export-pdf',type:'glean-add-menu',metadata:{label:'Export as PDF',icon:'export'}});
+window.GleanBridge.onMessage('action',d=>{if(d.actionId==='export-pdf')window.print();});
+</script>
+<style>@media print{body{background:#fff;padding:.35in}.nav .search,.navbtns,.flag,.crumb{display:none!important}.card,.insight,.narr,.kpi{box-shadow:none!important;border:1px solid rgba(0,0,0,.12)}*,*::before,*::after{animation:none!important;transition:none!important}.card,.insight,.narr{break-inside:avoid}}</style>
+</body>
+</html>
