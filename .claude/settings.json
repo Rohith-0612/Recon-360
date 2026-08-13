@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"c:\\\\Users\\\\rreddy\\\\Documents\\\\Rohith\\\\Hackathon\\\\Recon_360\\\\apps\\\\web\\\\src\\\\app\\\\clients\\\\[id]\")",
+      "Bash(npm uninstall *)",
+      "Bash(npm run *)",
+      "Bash(echo \"started with pid $!\")",
+      "Bash(disown)",
+      "Bash(timeout 60 bash -c 'until curl -sf http://localhost:4000/api/health >/dev/null; do sleep 1; done')",
+      "Bash(timeout 60 bash -c 'until curl -sf http://localhost:3000 >/dev/null; do sleep 1; done')",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npx --yes playwright install chromium)",
+      "Bash(npm init *)",
+      "Bash(node verify.js)",
+      "Bash(timeout 20 bash -c 'until curl -s http://localhost:4000/api/upsell | grep -q \"50\\\\.\"; do sleep 1; echo waiting; done')",
+      "Bash(curl -s http://localhost:4000/api/upsell)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const p=j.plays.find\\(x=>x.clientName==='Atlas Financial Services'&&x.productName==='Data Marketplace'\\);console.log\\(p\\);}\\)\")",
+      "Bash(node debug-driver.js)",
+      "Bash(powershell -Command ' *)",
+      "Bash(curl -s -m 2 http://localhost:3000)",
+      "Bash(echo \"web exit:$?\")",
+      "Bash(echo \"api exit:$?\")",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:3000 >/dev/null 2>&1; do sleep 1; done')",
+      "Bash(timeout 20 bash -c 'until curl -sf http://localhost:4000/api/health >/dev/null 2>&1; do sleep 1; done')",
+      "Bash(node -e ' *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\rreddy\\Documents\\Rohith\\Hackathon\\Recon_360\\apps\\web\\src\\app\\clients"
+    ]
+  }
+}

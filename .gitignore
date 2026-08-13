@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+apps/*/node_modules/
+
+# next.js
+apps/web/.next/
+apps/web/out/
+next-env.d.ts
+
+# nest.js
+apps/api/dist/
+
+# env files
+.env
+.env.local
+apps/*/.env
+apps/*/.env.local
+
+# misc
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*
+coverage/
