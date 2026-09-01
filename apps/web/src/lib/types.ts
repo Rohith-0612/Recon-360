@@ -1,4 +1,4 @@
-export type HealthStatus = 'healthy' | 'at_risk' | 'critical';
+export type HealthStatus = 'healthy' | 'watch' | 'at_risk' | 'critical';
 export type UrgencyColor = 'green' | 'amber' | 'red';
 export type TrendClass = 'up' | 'down' | 'flat';
 export type ProductStatus = 'healthy' | 'under' | 'gap' | 'billnouse' | 'usenobill' | 'over';
@@ -24,11 +24,13 @@ export interface PortfolioClient {
   status: HealthStatus;
   delta: number;
   acv: string;
+  acvValue: number;
   renewal: string;
   renewalUrgency: UrgencyColor;
   productsUsed: number;
   productsOwned: number;
   flagCount: number;
+  usageGrowthPct: number;
 }
 
 export interface PortfolioResponse {
@@ -73,6 +75,7 @@ export interface ClientDetailResponse {
   id: string;
   name: string;
   sub: string;
+  billingMetric: string;
   avatar: string;
   acv: string;
   tenure: string;
@@ -90,6 +93,10 @@ export interface ClientDetailResponse {
   aiAnswer: string;
   insights: InsightRecord[];
   narrative: string;
+  evidence: string[];
+  recommendedAction: string;
+  actionOwner: string;
+  riskFlags: string[];
 }
 
 export type TrendSignal = 'over_usage' | 'upsell' | 'growing' | 'risk' | 'stable';
@@ -155,7 +162,6 @@ export interface MarginRow {
 }
 
 export interface MarginResponse {
-  assumptions: { basePct: number; intensityPct: number; overagePenaltyPct: number };
   rows: MarginRow[];
   bookMarginPct: number;
   hiddenLowMarginCount: number;

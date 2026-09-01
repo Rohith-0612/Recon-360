@@ -25,8 +25,7 @@ export const api = {
   getTrends: (id: string) => getJson<TrendsResponse>(`/clients/${id}/trends`),
   getValueReport: (id: string) => getJson<ValueReportResponse>(`/clients/${id}/value-report`),
   getUpsell: () => getJson<UpsellResponse>('/upsell'),
-  getMargin: (base: number, intensity: number, overage: number) =>
-    getJson<MarginResponse>(`/margin?base=${base}&intensity=${intensity}&overage=${overage}`),
+  getMargin: () => getJson<MarginResponse>('/margin'),
   getAlerts: () => getJson<AlertsResponse>('/alerts'),
   search: (q: string) => getJson<{ clientId: string | null }>(`/search?q=${encodeURIComponent(q)}`),
   getMigrationOverview: () => getJson<MigrationOverviewResponse>('/migration/overview'),

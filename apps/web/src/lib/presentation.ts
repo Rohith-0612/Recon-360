@@ -26,6 +26,7 @@ export function scoreToColor(score: number): 'green' | 'amber' | 'red' {
 
 export function healthBadge(status: HealthStatus): { label: string; className: string } {
   if (status === 'healthy') return { label: 'Healthy', className: BRAND.green };
+  if (status === 'watch') return { label: 'Watch', className: BRAND.amber };
   if (status === 'at_risk') return { label: 'At Risk', className: BRAND.amber };
   return { label: 'Critical', className: BRAND.red };
 }
@@ -36,6 +37,13 @@ export function urgencyClass(color: UrgencyColor): string {
 
 export function driverColorClass(color: UrgencyColor): string {
   return color === 'green' ? 'bg-brand-green' : color === 'amber' ? 'bg-brand-amber' : 'bg-brand-red';
+}
+
+/** Renewal-urgency color, read as a renewal-risk badge (Portfolio table's "Risk" column). */
+export function renewalRiskBadge(color: UrgencyColor): { label: string; className: string } {
+  if (color === 'red') return { label: 'High', className: BRAND.red };
+  if (color === 'amber') return { label: 'Medium', className: BRAND.amber };
+  return { label: 'Low', className: BRAND.green };
 }
 
 const PRODUCT_STATUS_META: Record<ProductStatus, { label: string; className: string }> = {
@@ -82,7 +90,7 @@ export function upsellSignalBadge(signal: UpsellSignal) {
 
 const ALERT_SEVERITY_META: Record<AlertSeverity, { label: string; className: string }> = {
   High: { label: 'High', className: BRAND.red },
-  Opportunity: { label: 'Opportunity', className: BRAND.red },
+  Opportunity: { label: 'Opportunity', className: BRAND.green },
   Medium: { label: 'Medium', className: BRAND.amber },
 };
 
@@ -105,6 +113,12 @@ export function marginPctClass(pct: number): string {
   if (pct >= 50) return BRAND.green;
   if (pct >= 40) return BRAND.amber;
   return BRAND.red;
+}
+
+export function marginPctColorVar(pct: number): string {
+  if (pct >= 50) return 'var(--brand-green)';
+  if (pct >= 40) return 'var(--brand-amber)';
+  return 'var(--brand-red)';
 }
 
 const MIGRATION_SEVERITY_META: Record<MigrationSeverity, { label: string; className: string }> = {

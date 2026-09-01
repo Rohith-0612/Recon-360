@@ -6,13 +6,20 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n WEB,API -c blue,green \"npm:dev:web\" \"npm:dev:api\"",
+    "dev": "concurrently -n WEB,API,EXCEL -c blue,green,yellow \"npm:dev:web\" \"npm:dev:api\" \"npm:excel:watch\"",
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run start:dev -w apps/api",
     "build": "npm run build -w apps/api && npm run build -w apps/web",
-    "lint": "npm run lint -w apps/web && npm run lint -w apps/api"
+    "lint": "npm run lint -w apps/web && npm run lint -w apps/api",
+    "tunnel:web": "ngrok http 3000",
+    "excel:export": "node scripts/export-clients-to-excel.js",
+    "excel:sync": "node scripts/sync-clients-from-excel.js",
+    "excel:watch": "node scripts/watch-excel-sync.js"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "chokidar": "^4.0.3",
+    "concurrently": "^9.1.0",
+    "ngrok": "^5.0.0-beta.2",
+    "xlsx": "^0.18.5"
   }
 }

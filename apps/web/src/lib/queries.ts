@@ -14,12 +14,7 @@ export const useValueReport = (id: string) =>
 
 export const useUpsell = () => useQuery({ queryKey: ['upsell'], queryFn: api.getUpsell });
 
-export const useMargin = (base: number, intensity: number, overage: number) =>
-  useQuery({
-    queryKey: ['margin', base, intensity, overage],
-    queryFn: () => api.getMargin(base, intensity, overage),
-    placeholderData: (prev) => prev,
-  });
+export const useMargin = () => useQuery({ queryKey: ['margin'], queryFn: api.getMargin });
 
 export const useAlerts = () => useQuery({ queryKey: ['alerts'], queryFn: api.getAlerts });
 

@@ -4,20 +4,37 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Info } from 'lucide-react';
-import { useClient } from '@/lib/queries';
+import { useAlerts, useClient, useTrends, useUpsell } from '@/lib/queries';
 import {
   driverColorClass,
   healthBadge,
   productStatusBadge,
+  trendSignalBadge,
   urgencyClass,
   utilizationColorClass,
 } from '@/lib/presentation';
 import { HealthGauge } from '@/components/health-gauge';
+import { DriverRadarChart } from '@/components/driver-radar-chart';
+import { ProductTrendChart } from '@/components/product-trend-chart';
+import { MiniTrendChart } from '@/components/mini-trend-chart';
 import { TrustedHtml } from '@/components/trusted-html';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ActionRecommendationCard } from '@/components/action-recommendation-card';
+import { ActionWorkflowDialog, ActionType } from '@/components/action-workflow-dialog';
+import { ClientAlertsDialog } from '@/components/client-alerts-dialog';
+import { buildRecommendation } from '@/lib/decision-engine';
+
+const TREND_SIGNAL_COLOR: Record<string, string> = {
+  over_usage: 'var(--brand-red)',
+  upsell: 'var(--brand-green)',
+  growing: 'var(--brand-green)',
+  risk: 'var(--brand-red)',
+  stable: 'var(--brand-amber)',
+};
 
 function Fact({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
   return (
@@ -49,7 +66,16 @@ function insightTagClass(tag: string) {
 export default function ClientDetailPage() {
   const params = useParams<{ id: string }>();
   const { data: c, isLoading } = useClient(params.id);
+  const { data: trends, isLoading: trendsLoading } = useTrends(params.id);
+  const { data: upsell } = useUpsell();
+  const { data: alerts } = useAlerts();
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<ActionType | null>(null);
+
+  function toggleProduct(id: string) {
+    setSelectedProduct((prev) => (prev === id ? null : id));
+  }
 
   if (isLoading || !c) {
     return (
@@ -69,12 +95,16 @@ export default function ClientDetailPage() {
       ? `showing products driving: ${selectedDriverInfo.name}`
       : 'no product-specific driver'
     : '';
+  const upsellByProduct = new Map(
+    (upsell?.plays ?? []).filter((play) => play.clientId === c.id).map((play) => [play.productName, play]),
+  );
+  const clientAlerts = (alerts?.alerts ?? []).filter((a) => a.clientId === c.id);
 
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2 text-sm font-semibold">
         <Link href="/" className="text-brand-blue hover:underline">
-          Portfolio
+          Client Radar
         </Link>
         <span className="text-muted-foreground">›</span>
         <span className="text-muted-foreground">{c.name}</span>
@@ -88,11 +118,13 @@ export default function ClientDetailPage() {
           <div className="text-lg font-semibold">{c.name}</div>
           <div className="text-xs text-muted-foreground">{c.sub}</div>
         </div>
-        <div className="ml-auto flex flex-wrap gap-6">
+        <div className="ml-auto flex flex-wrap items-center gap-6">
+          <Fact label="Billing Metric" value={c.billingMetric} />
           <Fact label="ACV" value={c.acv} />
           <Fact label="Tenure" value={c.tenure} />
           <Fact label="Renewal" value={c.renewal} valueClassName={urgencyClass(c.renewalUrgency)} />
-          <Fact label="Products" value={`${c.productsUsed} of ${c.productsOwned}`} />
+          <Fact label="Product Adoption" value={`${c.productsUsed} of ${c.productsOwned}`} />
+          <ClientAlertsDialog alerts={clientAlerts} />
         </div>
       </Card>
 
@@ -126,6 +158,9 @@ export default function ClientDetailPage() {
               <b className="text-foreground">{c.score}</b>
             </div>
           </div>
+          <div className="mt-3.5 w-full border-t border-border pt-2">
+            <DriverRadarChart drivers={c.drivers} />
+          </div>
         </Card>
 
         <Card className="p-5">
@@ -136,7 +171,7 @@ export default function ClientDetailPage() {
             <span className="flex-1">Signal</span>
             <span className="w-[70px]" />
             <span className="w-[30px] text-right">Score</span>
-            <span className="w-[32px] text-right">Δ QoQ</span>
+            <span className="w-[32px] text-right">QoQ</span>
           </div>
           {c.drivers.map((d, i) => (
             <div
@@ -152,10 +187,15 @@ export default function ClientDetailPage() {
                   {d.weightPct}%
                 </span>
                 {d.tooltip && (
-                  <Info
-                    className="ml-1.5 inline h-3 w-3 cursor-help align-middle text-muted-foreground"
-                    title={d.tooltip}
-                  />
+                  <Tooltip>
+                    <TooltipTrigger
+                      className="ml-1.5 inline align-middle"
+                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    >
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{d.tooltip}</TooltipContent>
+                  </Tooltip>
                 )}
               </span>
               <span className="h-1.5 w-[70px] overflow-hidden rounded bg-muted">
@@ -172,9 +212,6 @@ export default function ClientDetailPage() {
               </span>
             </div>
           ))}
-          <p className="mt-3 text-[11.5px] text-muted-foreground">
-            ↳ Click a driver to isolate the products behind it
-          </p>
         </Card>
       </div>
 
@@ -185,25 +222,33 @@ export default function ClientDetailPage() {
           </CardTitle>
           {driverLabel && <span className="text-sm font-semibold text-brand-blue">{driverLabel}</span>}
         </CardHeader>
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead className="text-center">Bought</TableHead>
-              <TableHead className="text-center">Used</TableHead>
-              <TableHead className="text-center">Billed</TableHead>
-              <TableHead className="text-right">Utilization</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="w-[24%]">Product</TableHead>
+              <TableHead className="w-[6%] text-center">Bought</TableHead>
+              <TableHead className="w-[6%] text-center">Used</TableHead>
+              <TableHead className="w-[6%] text-center">Billed</TableHead>
+              <TableHead className="w-[20%] text-right">Utilization</TableHead>
+              <TableHead className="w-[14%]">Status</TableHead>
+              <TableHead className="w-[12%] text-right">Est. ACV Uplift</TableHead>
+              <TableHead className="w-[12%]">Routed To</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {c.products.map((p) => {
-              const dim = relatedSet && !relatedSet.has(p.id);
+              const dim = (relatedSet && !relatedSet.has(p.id)) || (selectedProduct !== null && selectedProduct !== p.id);
               const productBadge = productStatusBadge(p.status);
+              const play = upsellByProduct.get(p.name);
               return (
                 <TableRow key={p.id} className={dim ? 'opacity-30' : ''}>
                   <TableCell>
-                    <div className="font-semibold">{p.name}</div>
+                    <div
+                      onClick={() => toggleProduct(p.id)}
+                      className={`cursor-pointer font-semibold hover:text-brand-blue ${selectedProduct === p.id ? 'text-brand-blue' : ''}`}
+                    >
+                      {p.name}
+                    </div>
                     <div className="font-mono text-[11px] text-muted-foreground">{p.category}</div>
                   </TableCell>
                   <TableCell className="text-center">
@@ -236,11 +281,99 @@ export default function ClientDetailPage() {
                       {productBadge.label}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    {play ? <b className="text-brand-green">{play.upliftAcvLabel}</b> : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="whitespace-normal text-muted-foreground">{play?.routedTo ?? '—'}</TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
+      </Card>
+
+      <Card className="mt-4.5 p-5">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Usage by Product</div>
+          <span className="text-xs text-muted-foreground">indexed to first month = 100% · shape, not absolute volume</span>
+        </div>
+        {trendsLoading || !trends ? (
+          <Skeleton className="h-[260px] w-full" />
+        ) : (
+          <ProductTrendChart products={trends.products} active={selectedProduct} onActiveChange={setSelectedProduct} />
+        )}
+      </Card>
+
+      <Card className="mt-4.5 overflow-hidden py-0">
+        <CardHeader className="border-b border-border py-4">
+          <CardTitle className="text-[13px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Usage Trendline — last {trends?.products[0]?.series.length ?? 6} months
+          </CardTitle>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Product</TableHead>
+              {trends?.products[0]?.series.map((s) => (
+                <TableHead key={s.month} className="text-right">
+                  {s.month}
+                </TableHead>
+              ))}
+              <TableHead className="text-center">Trend</TableHead>
+              <TableHead className="text-right">MoM</TableHead>
+              <TableHead>Signal</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trendsLoading || !trends
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={10}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              : trends.products.map((p) => {
+                  const signal = trendSignalBadge(p.signal);
+                  const dim = selectedProduct !== null && selectedProduct !== p.productId;
+                  return (
+                    <TableRow key={p.productId} className={dim ? 'opacity-30' : ''}>
+                      <TableCell>
+                        <div
+                          onClick={() => toggleProduct(p.productId)}
+                          className={`cursor-pointer font-semibold hover:text-brand-blue ${selectedProduct === p.productId ? 'text-brand-blue' : ''}`}
+                        >
+                          {p.name}
+                        </div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{p.unit}</div>
+                      </TableCell>
+                      {p.series.map((s) => (
+                        <TableCell key={s.month} className="text-right font-mono">
+                          {s.value.toLocaleString('en-US')}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center">
+                        <MiniTrendChart series={p.series} color={TREND_SIGNAL_COLOR[p.signal]} />
+                      </TableCell>
+                      <TableCell
+                        className={`text-right ${p.momPct > 1 ? 'text-brand-green' : p.momPct < -1 ? 'text-brand-red' : 'text-muted-foreground'}`}
+                      >
+                        {p.momPct > 0 ? '+' : ''}
+                        {p.momPct}%
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={signal.className}>
+                          {signal.label}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+          </TableBody>
+        </Table>
+        <p className="px-4 pb-3.5 text-[11.5px] text-muted-foreground">
+          Volumes in each product's native unit · sourced from usage_billing instead of manual Connect exports
+        </p>
       </Card>
 
       <div className="mt-4.5 grid gap-3.5 md:grid-cols-3">
@@ -255,6 +388,15 @@ export default function ClientDetailPage() {
           </Card>
         ))}
       </div>
+
+      <ActionRecommendationCard client={c} onAction={setPendingAction} />
+      <ActionWorkflowDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => !open && setPendingAction(null)}
+        actionType={pendingAction}
+        client={c}
+        recommendation={buildRecommendation(c)}
+      />
 
       <div className="mt-4.5 rounded-r-xl border-l-[3px] border-brand-blue bg-brand-blue/10 p-4">
         <span className="font-mono text-[10px] font-bold tracking-widest text-brand-blue uppercase">

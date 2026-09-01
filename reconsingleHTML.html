@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recon 360 — Client Health</title>
+<script>
+try { if (localStorage.getItem('recon360-theme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) {}
+</script>
+<style>
+/* ============================================================
+   DESIGN TOKENS — mirrors apps/web/src/app/globals.css exactly
+   ============================================================ */
+:root{
+  --background:#f6f7f9; --foreground:#0f1420; --card:#ffffff; --card-foreground:#0f1420;
+  --muted:#eef1f5; --muted-foreground:#586173; --border:#e5e9f0;
+  --brand-blue:#2f6df6; --brand-green:#189a5b; --brand-amber:#cf8500; --brand-red:#d6453a; --brand-purple:#7a55d6;
+  --shadow:0 1px 3px rgba(15,20,32,.06),0 10px 30px rgba(15,20,32,.05);
+}
+html.dark{
+  --background:#0b0e14; --foreground:#e8ebf0; --card:#12151d; --card-foreground:#e8ebf0;
+  --muted:#171c26; --muted-foreground:#a6b0bf; --border:#28303d;
+  --brand-blue:#5b8cff; --brand-green:#2fbf76; --brand-amber:#e0a03a; --brand-red:#e2685f; --brand-purple:#9575e0;
+  --shadow:0 1px 3px rgba(0,0,0,.45),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--background); color:var(--foreground); line-height:1.5; font-size:14px;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+
+/* ============================================================
+   LAYOUT — sidebar (nav-bar.tsx) + top bar (top-bar.tsx) + main
+   ============================================================ */
+#app{display:flex;min-height:100vh}
+
+.sidebar{position:sticky;top:0;align-self:flex-start;height:100vh;width:240px;flex-shrink:0;display:flex;flex-direction:column;background:#0a0d0a;color:#fff}
+.sidebar-logo{padding:20px 16px 16px}
+.sidebar-logo-inner{display:flex;align-items:center;gap:10px;border:1px solid rgba(50,219,134,.4);background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;cursor:pointer}
+.sidebar-logo-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;border:1px solid rgba(50,219,134,.5);flex-shrink:0;overflow:hidden}
+.sidebar-logo-mark svg{width:20px;height:20px}
+.sidebar-logo-text{line-height:1.25}
+.sidebar-logo-title{font-size:17px;font-weight:700;color:#fff}
+.sidebar-logo-title span{color:#32DB86}
+.sidebar-logo-sub{font-size:9px;font-weight:600;letter-spacing:.09em;color:rgba(255,255,255,.4);text-transform:uppercase}
+.sidebar-nav{flex:1;padding:10px 12px 0;display:flex;flex-direction:column;gap:2px}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;border-radius:6px;padding:9px 12px;font-size:13px;font-weight:500;color:rgba(255,255,255,.65);cursor:pointer}
+.sidebar-nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+.sidebar-nav a.active{background:rgba(50,219,134,.15);color:#32DB86}
+.sidebar-nav a .nicon{width:16px;text-align:center;flex-shrink:0;font-size:13px}
+.sidebar-footer{border-top:1px solid rgba(255,255,255,.1);padding:16px}
+.theme-toggle{display:flex;align-items:center;width:36px;height:20px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.1);padding:2px;cursor:pointer;margin-bottom:12px}
+.theme-toggle.is-dark{background:rgba(50,219,134,.35);justify-content:flex-end}
+.theme-toggle .knob{width:14px;height:14px;border-radius:999px;background:#fff;display:grid;place-items:center;font-size:9px;color:#0a0d0a}
+.user-chip{display:flex;align-items:center;gap:8px}
+.user-avatar{display:grid;place-items:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+.user-name{font-size:12px;font-weight:600;color:#fff}
+.user-role{font-size:10px;color:rgba(255,255,255,.45)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--card);padding:11px 24px;gap:14px;flex-wrap:wrap}
+.topbar-title{font-size:13px;font-weight:600;flex-shrink:0}
+.topbar-right{display:flex;flex:1;align-items:center;justify-content:flex-end;gap:10px;min-width:0}
+.topbar-search{position:relative;flex:1;min-width:200px;max-width:480px}
+.topbar-search input{width:100%;border:1px solid var(--border);background:var(--background);border-radius:6px;padding:7px 12px 7px 30px;font-size:13px;color:var(--foreground);outline:none}
+.topbar-search input:focus{border-color:var(--brand-blue)}
+.topbar-search .sicon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted-foreground);font-size:12px;pointer-events:none}
+.demo-tag{border:1px dashed var(--border);border-radius:6px;padding:4px 8px;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:9px;color:var(--muted-foreground);white-space:nowrap;flex-shrink:0}
+.content{flex:1;min-width:0;padding:14px 24px 64px}
+
+h1.page-title{font-size:24px;font-weight:600;letter-spacing:-.01em;margin:8px 0 4px}
+p.page-sub{color:var(--muted-foreground);font-size:13.5px;margin:0 0 18px;max-width:720px}
+.kpi-badges{display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+
+/* ============================================================
+   CARD / TABLE / BADGE PRIMITIVES
+   ============================================================ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.card-pad{padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:14px 18px;gap:10px;flex-wrap:wrap}
+.card-header-title{font-size:13px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted-foreground)}
+.card-footnote{padding:0 16px 14px;font-size:11.5px;color:var(--muted-foreground)}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-foreground);font-weight:600;padding:10px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+th.num,td.num{text-align:right} th.ctr,td.ctr{text-align:center}
+td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.clickable{cursor:pointer}
+tbody tr.clickable:hover{background:var(--muted)}
+tbody tr.row-selected{background:color-mix(in srgb, var(--brand-blue) 10%, transparent)}
+tbody tr.row-dim{opacity:.3}
+.cell-name{font-weight:600}
+.cell-sub{font-size:11px;color:var(--muted-foreground)}
+.mono{font-family:ui-monospace,"SF Mono",Consolas,monospace}
+.clickable-text{cursor:pointer;font-weight:600}
+.clickable-text:hover{color:var(--brand-blue)}
+.clickable-text.is-active{color:var(--brand-blue)}
+
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge-green{background:color-mix(in srgb,var(--brand-green) 12%,transparent);color:var(--brand-green)}
+.badge-amber{background:color-mix(in srgb,var(--brand-amber) 14%,transparent);color:var(--brand-amber)}
+.badge-red{background:color-mix(in srgb,var(--brand-red) 12%,transparent);color:var(--brand-red)}
+.badge-purple{background:color-mix(in srgb,var(--brand-purple) 12%,transparent);color:var(--brand-purple)}
+.badge-blue{background:color-mix(in srgb,var(--brand-blue) 12%,transparent);color:var(--brand-blue)}
+
+.text-green{color:var(--brand-green)} .text-amber{color:var(--brand-amber)} .text-red{color:var(--brand-red)}
+.text-purple{color:var(--brand-purple)} .text-blue{color:var(--brand-blue)} .text-muted{color:var(--muted-foreground)}
+.bg-green{background:var(--brand-green)} .bg-amber{background:var(--brand-amber)} .bg-red{background:var(--brand-red)} .bg-purple{background:var(--brand-purple)}
+
+.score-chip{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:6px;padding:0 4px;font-size:12.5px;font-weight:700}
+
+/* ============================================================
+   KPI TILES + mini visuals (kpi-tile.tsx / kpi-visuals.tsx)
+   ============================================================ */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+@media(max-width:980px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-tile{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.kpi-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.kpi-left{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.kpi-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;flex-shrink:0;font-size:13px}
+.kpi-label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+.kpi-value{font-size:23px;font-weight:700;letter-spacing:-.01em;margin-top:3px}
+.kpi-sub{font-size:11.5px;color:var(--muted-foreground);margin-top:6px}
+.kpi-footer{margin-top:10px}
+
+.mini-stacked-bar{display:flex;height:8px;width:100%;overflow:hidden;border-radius:999px;background:var(--muted)}
+.mini-stacked-bar span{height:100%}
+.mini-status-bars{display:flex;align-items:flex-end;gap:4px;height:32px}
+.mini-status-bars span{width:10px;border-radius:3px 3px 0 0}
+
+/* ============================================================
+   GAUGE / RADAR / DRIVERS (health-gauge / driver-radar-chart)
+   ============================================================ */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gauge{position:relative;width:150px;height:150px}
+.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge-num{font-size:34px;font-weight:700;letter-spacing:-.01em}
+.gauge-of{font-size:11px;color:var(--muted-foreground)}
+.gauge-delta{margin-top:8px;font-size:12.5px;font-weight:600}
+.gauge-lastq{margin-top:8px;font-size:12px;color:var(--muted-foreground)}
+
+.driver-head{display:flex;align-items:center;gap:10px;padding-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--muted-foreground)}
+.driver-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--border);margin:0 -8px;border-radius:8px;cursor:pointer}
+.driver-row:first-child{border-top:none}
+.driver-row:hover{background:var(--muted)}
+.driver-row.selected{background:color-mix(in srgb,var(--brand-blue) 10%,transparent)}
+.driver-name{flex:1;font-size:13.5px}
+.driver-weight{margin-left:6px;border-radius:4px;background:var(--muted);padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:10px;color:var(--muted-foreground)}
+.driver-info{margin-left:6px;color:var(--muted-foreground);cursor:help;font-size:11px;vertical-align:middle}
+.driver-bar-track{width:70px;height:6px;border-radius:4px;background:var(--muted);overflow:hidden;flex-shrink:0}
+.driver-bar-fill{display:block;height:100%}
+.driver-score{width:32px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:15px;font-weight:700}
+.driver-delta{width:38px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+
+/* ============================================================
+   PAGE-LEVEL LAYOUT HELPERS
+   ============================================================ */
+.grid-2col{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+@media(max-width:880px){.grid-2col{grid-template-columns:1fr}}
+.client-header{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px;margin-bottom:18px}
+.avatar-box{display:grid;place-items:center;width:46px;height:46px;border-radius:11px;background:color-mix(in srgb,var(--brand-blue) 10%,transparent);color:var(--brand-blue);font-size:16px;font-weight:800;flex-shrink:0}
+.client-facts{display:flex;flex-wrap:wrap;gap:22px;margin-left:auto;align-items:center}
+.fact-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;color:var(--muted-foreground);text-transform:uppercase}
+.fact-value{font-size:15px;font-weight:600;margin-top:1px}
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:14px}
+.ai-summary{padding:16px;margin-bottom:18px}
+.ai-summary .q{font-size:13px;color:var(--muted-foreground)}
+.ai-summary .a{margin-top:8px;padding-top:10px;border-top:1px solid var(--border);font-size:13.5px}
+.alerts-bell{display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--brand-red) 25%,transparent);background:color-mix(in srgb,var(--brand-red) 10%,transparent);color:var(--brand-red);border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:13px}
+
+.insights-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+@media(max-width:880px){.insights-grid{grid-template-columns:1fr}}
+.insight-card{padding:16px}
+.insight-tag{font-family:ui-monospace,Consolas,monospace;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.insight-title{font-size:14.5px;font-weight:600;margin:8px 0 4px}
+.insight-desc{font-size:12.5px;color:var(--muted-foreground);margin:0 0 8px}
+.insight-action{font-size:12.5px;font-weight:600;color:var(--brand-blue);display:block}
+
+.evidence-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-top:18px}
+@media(max-width:880px){.evidence-grid{grid-template-columns:1fr}}
+.evidence-item{display:flex;gap:10px;border-radius:8px;background:color-mix(in srgb,var(--muted) 60%,transparent);padding:10px;margin-bottom:8px}
+.evidence-item .dot{flex-shrink:0}
+.rec-card{border:1px dashed var(--border);padding:16px}
+.rec-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--brand-blue);background:var(--brand-blue);color:#fff}
+.btn:hover{opacity:.9}
+.btn.outline{background:transparent;color:var(--foreground);border-color:var(--border)}
+.btn.outline:hover{background:var(--muted)}
+
+.risk-flags{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.risk-flag{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600}
+
+.narrative-box{margin-top:18px;border-left:3px solid var(--brand-blue);background:color-mix(in srgb,var(--brand-blue) 10%,transparent);border-radius:0 12px 12px 0;padding:16px 20px}
+.narrative-box .tag{font-family:ui-monospace,Consolas,monospace;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand-blue)}
+.narrative-box p{margin:7px 0 0;font-size:14px}
+
+.section-label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:10px}
+.legend-row{display:flex;gap:16px;font-size:12px;color:var(--muted-foreground);flex-wrap:wrap}
+.legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;margin-right:5px;vertical-align:middle}
+.legend-item{cursor:pointer}
+.legend-item.dim{opacity:.4}
+
+.panel-row{border:1px solid var(--border);background:var(--card);border-radius:10px;padding:14px}
+.panel-row .t{font-size:13.5px;font-weight:600}
+.panel-row .d{margin-top:4px;font-size:12.5px;color:var(--muted-foreground)}
+
+.value-report{max-width:780px;overflow:hidden;border-radius:16px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)}
+.value-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:26px}
+.value-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;background:color-mix(in srgb,var(--brand-blue) 10%,transparent);padding:26px}
+.value-big{font-size:30px;font-weight:700;letter-spacing:-.02em}
+.value-cap{font-size:12px;color:var(--muted-foreground);margin-top:2px}
+.value-sec{padding:18px 26px;border-top:1px solid var(--border)}
+.value-sec h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-foreground)}
+.value-sec ul{margin:0;padding-left:18px;font-size:14px}
+.value-sec li{margin:5px 0}
+.value-foot{padding:16px 26px;font-size:12px;color:var(--muted-foreground);border-top:1px solid var(--border)}
+
+select.selbox, .toolbar-select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--foreground);font-size:13px;font-weight:600;cursor:pointer;outline:none}
+select.selbox:focus{border-color:var(--brand-blue)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}
+.toolbar label{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted-foreground);text-transform:uppercase}
+
+/* ============================================================
+   CHART CONTAINERS + tooltips
+   ============================================================ */
+.chart-box{width:100%}
+.chart-box svg{display:block;width:100%;height:auto}
+.chart-flex-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+
+/* ============================================================
+   MODAL + TOAST
+   ============================================================ */
+.overlay{position:fixed;inset:0;background:rgba(10,13,10,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal{background:var(--card);border-radius:14px;border:1px solid var(--border);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow)}
+.modal-title{font-size:16px;font-weight:700;margin:0 0 4px}
+.modal-desc{font-size:12.5px;color:var(--muted-foreground);margin:0}
+.modal-close{position:absolute;top:14px;right:16px;cursor:pointer;color:var(--muted-foreground);font-size:16px;background:none;border:none}
+.modal{position:relative}
+.step-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;color:var(--muted-foreground)}
+.step-row.done{color:var(--foreground)}
+.step-row.active{color:var(--foreground);font-weight:600}
+.step-dot{display:grid;place-items:center;width:20px;height:20px;border-radius:999px;border:2px solid var(--border);font-size:11px;flex-shrink:0}
+.step-dot.done{border-color:var(--brand-green);background:var(--brand-green);color:#fff}
+.sim-result{margin-top:14px;border-radius:10px;background:color-mix(in srgb,var(--brand-green) 10%,transparent);padding:14px}
+.sim-result .lbl{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted-foreground)}
+.sim-result .val{margin-top:4px;font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:600}
+.sim-result .msg{margin-top:10px;border-radius:8px;background:color-mix(in srgb,var(--muted) 70%,transparent);padding:10px;font-size:12px}
+
+#toast-root{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--foreground);color:var(--background);padding:10px 16px;border-radius:8px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translateY(0)}
+
+.skeleton{background:var(--muted);border-radius:8px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+@media print{ .sidebar,.topbar{display:none} }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-inner" onclick="navigate('')">
+        <span class="sidebar-logo-mark">
+          <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="160" cy="160" r="110" fill="none" stroke="#32DB86" stroke-width="4"/>
+            <circle cx="160" cy="160" r="80" fill="none" stroke="#32DB86" stroke-width="1.5" stroke-dasharray="4 5" opacity="0.5"/>
+            <g fill="#32DB86">
+              <rect x="130" y="190" width="14" height="30" rx="2"/>
+              <rect x="153" y="170" width="14" height="50" rx="2"/>
+              <rect x="176" y="145" width="14" height="75" rx="2"/>
+            </g>
+            <circle cx="210" cy="120" r="7" fill="#32DB86"/>
+          </svg>
+        </span>
+        <span class="sidebar-logo-text">
+          <div class="sidebar-logo-title">Recon <span>360</span></div>
+          <div class="sidebar-logo-sub">By LiveRamp</div>
+        </span>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
+        <span class="knob" id="theme-knob">☀</span>
+      </button>
+      <div class="user-chip">
+        <span class="user-avatar">DR</span>
+        <div>
+          <div class="user-name">Dana Ruiz</div>
+          <div class="user-role">CS Ops</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Client Radar</span>
+      <div class="topbar-right">
+        <div class="topbar-search">
+          <span class="sicon">⌕</span>
+          <input id="topbar-search-input" placeholder="Ask: which clients are billed for products they don't use?" onkeydown="handleTopbarSearch(event)" />
+        </div>
+        <span class="demo-tag">DEMO · illustrative data</span>
+      </div>
+    </div>
+    <div class="content" id="main-content"></div>
+  </div>
+</div>
+
+<div id="toast-root"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ============================================================
+   DATA — embedded verbatim from the live Recon 360 API.
+   (See recon-data.json; this is the same object, inlined so the
+   page works fully offline from file://.)
+   ============================================================ */
+const DATA = {"portfolio":{"kpis":{"bookOfBusiness":2772043.9699999997,"bookOfBusinessLabel":"$2.8M","atRiskAccounts":4,"atRiskRenewingSoon":1,"billingMismatches":2,"billingMismatchClients":1,"whitespaceSignals":345000,"whitespaceSignalsLabel":"$345K","totalClients":15},"clients":[{"id":"chubb","name":"Chubb","sub":"RUM · SFDC #001f200001f8OWGAA2","score":42,"status":"critical","delta":-30,"acv":"$100K","acvValue":100000,"renewal":"250 days","renewalUrgency":"green","productsUsed":2,"productsOwned":2,"flagCount":2,"usageGrowthPct":-30},{"id":"constellation-brands","name":"Constellation Brands","sub":"RUM · SFDC #001f200001f8OTNAA2","score":56,"status":"at_risk","delta":-12,"acv":"$179K","acvValue":179127.22,"renewal":"189 days","renewalUrgency":"green","productsUsed":5,"productsOwned":5,"flagCount":0,"usageGrowthPct":-5},{"id":"taxquotes","name":"TaxQuotes","sub":"RUM · SFDC #001PP00000CKuDeYAL","score":56,"status":"at_risk","delta":-12,"acv":"$110K","acvValue":110250,"renewal":"262 days","renewalUrgency":"green","productsUsed":3,"productsOwned":3,"flagCount":0,"usageGrowthPct":2},{"id":"franklin-templeton-comp","name":"Franklin Templeton Comp","sub":"RUM · SFDC #001f200001f947LAAQ","score":58,"status":"at_risk","delta":-12,"acv":"$258K","acvValue":257937.75,"renewal":"75 days","renewalUrgency":"amber","productsUsed":2,"productsOwned":2,"flagCount":0,"usageGrowthPct":-9},{"id":"lampsplus","name":"LampsPlus","sub":"Tokens · SFDC #001f200001f8OWRAA2","score":69,"status":"watch","delta":-4,"acv":"$61K","acvValue":61380,"renewal":"99 days","renewalUrgency":"green","productsUsed":5,"productsOwned":5,"flagCount":0,"usageGrowthPct":-1},{"id":"rent-a-center","name":"Rent-A-Center","sub":"RUM · SFDC #001f200001f8OWiAAM","score":71,"status":"watch","delta":-4,"acv":"$236K","acvValue":236250,"renewal":"38 days","renewalUrgency":"red","productsUsed":3,"productsOwned":3,"flagCount":0,"usageGrowthPct":-2},{"id":"georgia-pacific-llc","name":"Georgia-Pacific LLC","sub":"RUM · SFDC #001f200001f8OR0AAM","score":74,"status":"watch","delta":-4,"acv":"$297K","acvValue":296640,"renewal":"38 days","renewalUrgency":"red","productsUsed":2,"productsOwned":2,"flagCount":0,"usageGrowthPct":-3},{"id":"metlife","name":"Metlife","sub":"RUM · SFDC #0018W00002GBxzSQAT","score":75,"status":"watch","delta":-4,"acv":"$114K","acvValue":113604,"renewal":"495 days","renewalUrgency":"green","productsUsed":4,"productsOwned":4,"flagCount":0,"usageGrowthPct":-4},{"id":"raymourandflanigan","name":"Raymour&Flanigan","sub":"Each · SFDC #001f200001f8ON7AAM","score":82,"status":"healthy","delta":4,"acv":"$106K","acvValue":105987,"renewal":"220 days","renewalUrgency":"green","productsUsed":3,"productsOwned":3,"flagCount":0,"usageGrowthPct":-2},{"id":"pacsun","name":"PacSun","sub":"RUM · SFDC #001f200001f8OW0AAM","score":82,"status":"healthy","delta":4,"acv":"$137K","acvValue":137400,"renewal":"526 days","renewalUrgency":"green","productsUsed":4,"productsOwned":4,"flagCount":0,"usageGrowthPct":-2},{"id":"lean-media-inc","name":"Lean Media, Inc.","sub":"RUM · SFDC #001f200001f8OVcAAM","score":83,"status":"healthy","delta":4,"acv":"$108K","acvValue":108000,"renewal":"215 days","renewalUrgency":"green","productsUsed":2,"productsOwned":2,"flagCount":0,"usageGrowthPct":1},{"id":"cornerstone-brands-inc","name":"Cornerstone Brands, Inc.","sub":"RUM · SFDC #001f200001f91U8AA","score":84,"status":"healthy","delta":4,"acv":"$154K","acvValue":154000,"renewal":"372 days","renewalUrgency":"green","productsUsed":1,"productsOwned":1,"flagCount":0,"usageGrowthPct":7},{"id":"the-travelers-companies","name":"The Travelers Companies","sub":"RUM · SFDC #001f200001f95ivAAA","score":86,"status":"healthy","delta":4,"acv":"$350K","acvValue":349968,"renewal":"506 days","renewalUrgency":"green","productsUsed":3,"productsOwned":3,"flagCount":0,"usageGrowthPct":0},{"id":"circle-k","name":"Circle K","sub":"RUM, Impressions · SFDC #001f200001f94ypAAA","score":86,"status":"healthy","delta":4,"acv":"$257K","acvValue":257000,"renewal":"220 days","renewalUrgency":"green","productsUsed":5,"productsOwned":5,"flagCount":1,"usageGrowthPct":-2},{"id":"lovesac","name":"Lovesac","sub":"RUM · SFDC #001f200001f8OTzAAM","score":87,"status":"healthy","delta":4,"acv":"$305K","acvValue":304500,"renewal":"250 days","renewalUrgency":"green","productsUsed":5,"productsOwned":5,"flagCount":1,"usageGrowthPct":7}]},"upsell":{"plays":[{"clientId":"lovesac","clientName":"Lovesac","productName":"Activation","signal":"whitespace","currentCommit":"87000 records/mo","actualUsage":"110490 records/mo","recommendation":"Upsize commit tier","upliftAcv":61000,"upliftAcvLabel":"$61K","routedTo":"Sales"},{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","productName":"Activation","signal":"whitespace","currentCommit":"71000 records/mo","actualUsage":"66740 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":52000,"upliftAcvLabel":"$52K","routedTo":"Sales"},{"clientId":"circle-k","clientName":"Circle K","productName":"Activation","signal":"over_usage","currentCommit":"51000 records/mo","actualUsage":"59670 records/mo","recommendation":"Upsize commit tier","upliftAcv":51000,"upliftAcvLabel":"$51K","routedTo":"Sales"},{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","productName":"Activation","signal":"whitespace","currentCommit":"129000 records/mo","actualUsage":"86430 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":44000,"upliftAcvLabel":"$44K","routedTo":"Sales"},{"clientId":"rent-a-center","clientName":"Rent-A-Center","productName":"Activation","signal":"whitespace","currentCommit":"85000 records/mo","actualUsage":"61200 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":35000,"upliftAcvLabel":"$35K","routedTo":"Sales"},{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","productName":"Activation","signal":"whitespace","currentCommit":"42000 records/mo","actualUsage":"35280 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":23000,"upliftAcvLabel":"$23K","routedTo":"Sales"},{"clientId":"pacsun","clientName":"PacSun","productName":"Activation","signal":"whitespace","currentCommit":"34000 records/mo","actualUsage":"29240 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":21000,"upliftAcvLabel":"$21K","routedTo":"Sales"},{"clientId":"metlife","clientName":"Metlife","productName":"Enhanced Client-Side Tag","signal":"whitespace","currentCommit":"29000 records/mo","actualUsage":"19430 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":17000,"upliftAcvLabel":"$17K","routedTo":"Sales"},{"clientId":"lean-media-inc","clientName":"Lean Media, Inc.","productName":"Activation","signal":"whitespace","currentCommit":"27000 records/mo","actualUsage":"23490 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":16000,"upliftAcvLabel":"$16K","routedTo":"Sales"},{"clientId":"raymourandflanigan","clientName":"Raymour&Flanigan","productName":"Conversions API for Google Campaign Manager","signal":"whitespace","currentCommit":"43000 conversions/mo","actualUsage":"36550 conversions/mo","recommendation":"Proactive tier upgrade","upliftAcv":16000,"upliftAcvLabel":"$16K","routedTo":"Sales"},{"clientId":"lampsplus","clientName":"LampsPlus","productName":"LiveRamp Platform and Usage","signal":"whitespace","currentCommit":"22000 records/mo","actualUsage":"15840 records/mo","recommendation":"Proactive tier upgrade","upliftAcv":9000,"upliftAcvLabel":"$9K","routedTo":"Sales"},{"clientId":"constellation-brands","clientName":"Constellation Brands","productName":"Enhanced Client-Side Tag","signal":"whitespace","currentCommit":"97000 records/mo","actualUsage":"65960 records/mo","recommendation":"Enablement to lift adoption before renewal","upliftAcv":0,"upliftAcvLabel":"$0","routedTo":"CSM"},{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","productName":"B2B Activation","signal":"whitespace","currentCommit":"45000 records/mo","actualUsage":"27000 records/mo","recommendation":"Enablement to lift adoption before renewal","upliftAcv":0,"upliftAcvLabel":"$0","routedTo":"CSM"},{"clientId":"taxquotes","clientName":"TaxQuotes","productName":"Enhanced Client-Side Tag","signal":"whitespace","currentCommit":"54000 records/mo","actualUsage":"31860 records/mo","recommendation":"Enablement to lift adoption before renewal","upliftAcv":0,"upliftAcvLabel":"$0","routedTo":"CSM"}],"totalUplift":345000,"totalUpliftLabel":"$345K","playCount":14},"margin":{"rows":[{"clientId":"chubb","clientName":"Chubb","acv":100000,"acvLabel":"$100K","costToServe":74000,"costToServeLabel":"$74K","grossMargin":26000,"grossMarginLabel":"$26K","marginPct":26,"healthScore":42,"flag":"low"},{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","acv":257937.75,"acvLabel":"$258K","costToServe":178234.98525,"costToServeLabel":"$178K","grossMargin":79702.76475,"grossMarginLabel":"$80K","marginPct":30.9,"healthScore":58,"flag":"low"},{"clientId":"constellation-brands","clientName":"Constellation Brands","acv":179127.22,"acvLabel":"$179K","costToServe":116432.693,"costToServeLabel":"$116K","grossMargin":62694.527,"grossMarginLabel":"$63K","marginPct":35,"healthScore":56,"flag":"low"},{"clientId":"taxquotes","clientName":"TaxQuotes","acv":110250,"acvLabel":"$110K","costToServe":66370.5,"costToServeLabel":"$66K","grossMargin":43879.5,"grossMarginLabel":"$44K","marginPct":39.8,"healthScore":56,"flag":"low"},{"clientId":"metlife","clientName":"Metlife","acv":113604,"acvLabel":"$114K","costToServe":65776.716,"costToServeLabel":"$66K","grossMargin":47827.284,"grossMarginLabel":"$48K","marginPct":42.1,"healthScore":75,"flag":"hidden"},{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","acv":296640,"acvLabel":"$297K","costToServe":164041.91999999998,"costToServeLabel":"$164K","grossMargin":132598.08000000002,"grossMarginLabel":"$133K","marginPct":44.7,"healthScore":74,"flag":"hidden"},{"clientId":"lampsplus","clientName":"LampsPlus","acv":61380,"acvLabel":"$61K","costToServe":33083.82,"costToServeLabel":"$33K","grossMargin":28296.18,"grossMarginLabel":"$28K","marginPct":46.1,"healthScore":69,"flag":"watch"},{"clientId":"rent-a-center","clientName":"Rent-A-Center","acv":236250,"acvLabel":"$236K","costToServe":125212.5,"costToServeLabel":"$125K","grossMargin":111037.5,"grossMarginLabel":"$111K","marginPct":47,"healthScore":71,"flag":"hidden"},{"clientId":"pacsun","clientName":"PacSun","acv":137400,"acvLabel":"$137K","costToServe":71448,"costToServeLabel":"$71K","grossMargin":65952,"grossMarginLabel":"$66K","marginPct":48,"healthScore":82,"flag":"hidden"},{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","acv":349968,"acvLabel":"$350K","costToServe":181633.392,"costToServeLabel":"$182K","grossMargin":168334.608,"grossMarginLabel":"$168K","marginPct":48.1,"healthScore":86,"flag":"hidden"},{"clientId":"lean-media-inc","clientName":"Lean Media, Inc.","acv":108000,"acvLabel":"$108K","costToServe":53244,"costToServeLabel":"$53K","grossMargin":54756,"grossMarginLabel":"$55K","marginPct":50.7,"healthScore":83,"flag":"ok"},{"clientId":"circle-k","clientName":"Circle K","acv":257000,"acvLabel":"$257K","costToServe":118990.99999999999,"costToServeLabel":"$119K","grossMargin":138009,"grossMarginLabel":"$138K","marginPct":53.7,"healthScore":86,"flag":"ok"},{"clientId":"raymourandflanigan","clientName":"Raymour&Flanigan","acv":105987,"acvLabel":"$106K","costToServe":45998.358,"costToServeLabel":"$46K","grossMargin":59988.642,"grossMarginLabel":"$60K","marginPct":56.6,"healthScore":82,"flag":"ok"},{"clientId":"lovesac","clientName":"Lovesac","acv":304500,"acvLabel":"$305K","costToServe":131848.5,"costToServeLabel":"$132K","grossMargin":172651.5,"grossMarginLabel":"$173K","marginPct":56.7,"healthScore":87,"flag":"ok"},{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","acv":154000,"acvLabel":"$154K","costToServe":62524.00000000001,"costToServeLabel":"$63K","grossMargin":91476,"grossMarginLabel":"$91K","marginPct":59.4,"healthScore":84,"flag":"ok"}],"bookMarginPct":46,"hiddenLowMarginCount":5,"marginDilutiveCount":4},"alerts":{"alerts":[{"clientId":"rent-a-center","clientName":"Rent-A-Center","product":"Renewal","message":"Renewal in 38 days — protect proactively","signal":"renewal · 38d","severity":"High","owner":"CSM","tip":"High utilization (~72%) across products Consistent engagement and clean AR Whitespace on additional product lines","detectedDaysAgo":1},{"clientId":"constellation-brands","clientName":"Constellation Brands","product":"CRM","message":"Flagged as risk in CRM","signal":"CRM risk flag","severity":"High","owner":"CSM","tip":"Enhanced Client-Side Tag utilization slipping to 68% Flagged as risk in CRM Adoption trending down QoQ","detectedDaysAgo":2},{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","product":"Renewal","message":"Renewal in 38 days — protect proactively","signal":"renewal · 38d","severity":"High","owner":"CSM","tip":"High utilization (~67%) across products Consistent engagement and clean AR Whitespace on additional product lines","detectedDaysAgo":3},{"clientId":"taxquotes","clientName":"TaxQuotes","product":"CRM","message":"Flagged as risk in CRM","signal":"CRM risk flag","severity":"High","owner":"CSM","tip":"Enhanced Client-Side Tag utilization slipping to 59% Flagged as risk in CRM Adoption trending down QoQ","detectedDaysAgo":4},{"clientId":"chubb","clientName":"Chubb","product":"File ingestion","message":"No file uploaded in 7 months — data feed has gone silent","signal":"stale feed · 7mo","severity":"High","owner":"CSM + Solutions","tip":"B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700 Last upload Feb 3, 2026 — 7 months of silence Billing mismatch: paying for volume not consumed","detectedDaysAgo":5},{"clientId":"lovesac","clientName":"Lovesac","product":"Activation","message":"Over-usage spike above commit","signal":"+26% over","severity":"Opportunity","owner":"Sales + Finance","tip":"Activation running 27% over commit Utilization strong across 5 products Healthy payment history and engagement","detectedDaysAgo":1},{"clientId":"circle-k","clientName":"Circle K","product":"Activation","message":"Over-usage spike above commit","signal":"+17% over","severity":"Opportunity","owner":"Sales + Finance","tip":"Activation running 16% over commit Utilization strong across 5 products Healthy payment history and engagement","detectedDaysAgo":2},{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","product":"File ingestion","message":"No file uploaded in 4 months","signal":"stale feed · 4mo","severity":"Medium","owner":"CSM","tip":"B2B Activation utilization slipping to 60% Upload gap since Apr 20, 2026 Renewal Nov 7, 2026 (75d) — action window closing","detectedDaysAgo":3},{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","product":"Renewal","message":"Renewal in 75 days — protect proactively","signal":"renewal · 75d","severity":"Medium","owner":"CSM","tip":"B2B Activation utilization slipping to 60% Upload gap since Apr 20, 2026 Renewal Nov 7, 2026 (75d) — action window closing","detectedDaysAgo":4},{"clientId":"chubb","clientName":"Chubb","product":"Billing","message":"Billed but not consumed — needs reconciliation","signal":"billing mismatch","severity":"Medium","owner":"Finance","tip":"B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700 Last upload Feb 3, 2026 — 7 months of silence Billing mismatch: paying for volume not consumed","detectedDaysAgo":5}],"kpis":{"high":5,"opportunity":2,"medium":3,"uploadSilence":2}},"migrationOverview":{"kpis":{"totalPortfolioAcv":2772043.9699999997,"totalPortfolioAcvLabel":"$2.8M","atRiskAcv":1355188.97,"atRiskAcvLabel":"$1.4M","atRiskAccountCount":8,"migrationRequiredCount":12,"avgMarginPct":46},"usageTrend":[{"month":"2025-09","value":71},{"month":"2025-10","value":75},{"month":"2025-11","value":78},{"month":"2025-12","value":80},{"month":"2026-01","value":82},{"month":"2026-02","value":84},{"month":"2026-03","value":86},{"month":"2026-04","value":87},{"month":"2026-05","value":89},{"month":"2026-06","value":88},{"month":"2026-07","value":100}],"alerts":[{"severity":"High","message":"11 renewals below usage threshold"},{"severity":"High","message":"6 margin compression alerts"},{"severity":"Medium","message":"12 accounts flagged for token migration"},{"severity":"Medium","message":"0 accounts need Deal Desk review"}]},"migrationQueue":[{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","acv":"$350K","stage":"conversation_held","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"lovesac","clientName":"Lovesac","acv":"$305K","stage":"proposal_submitted","recommendedAction":"Move to token pricing — 3 bundle(s) @ $52.85/token","owner":"CSM"},{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","acv":"$297K","stage":"conversation_held","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","acv":"$258K","stage":"signed","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"Commercial"},{"clientId":"circle-k","clientName":"Circle K","acv":"$257K","stage":"deferred","recommendedAction":"Move to token pricing — 2 bundle(s) @ $52.85/token","owner":"CSM"},{"clientId":"rent-a-center","clientName":"Rent-A-Center","acv":"$236K","stage":"conversation_held","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"constellation-brands","clientName":"Constellation Brands","acv":"$179K","stage":"proposal_submitted","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","acv":"$154K","stage":"signed","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"Commercial"},{"clientId":"metlife","clientName":"Metlife","acv":"$114K","stage":"deferred","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"taxquotes","clientName":"TaxQuotes","acv":"$110K","stage":"signed","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"Commercial"},{"clientId":"chubb","clientName":"Chubb","acv":"$100K","stage":"conversation_held","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"},{"clientId":"lampsplus","clientName":"LampsPlus","acv":"$61K","stage":"deferred","recommendedAction":"Right-size to token/bundle commitment to match usage","owner":"CSM"}],"clients":{"chubb":{"id":"chubb","name":"Chubb","sub":"SFDC #001f200001f8OWGAA2","billingMetric":"RUM","avatar":"C","acv":"$100K","tenure":"Jul 31, 2017","renewal":"250 days","renewalUrgency":"green","score":42,"previousScore":72,"status":"critical","delta":-30,"productsOwned":2,"productsUsed":2,"drivers":[{"name":"Utilization","value":38,"delta":-30,"color":"red","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":34,"delta":-22,"color":"red","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":58,"delta":-8,"color":"red","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":40,"delta":-20,"color":"red","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":48,"delta":-14,"color":"red","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"b2b-activation","name":"B2B Activation","category":"records/mo","bought":18000,"used":2700,"billed":18000,"util":15,"trend":"down","status":"billnouse","contracted":18000,"usedVolume":2700,"unit":"records/mo"},{"id":"enhanced-matching-for-google-customer-match-b2b","name":"Enhanced Matching for Google Customer Match (B2B)","category":"matches/mo","bought":49000,"used":4410,"billed":49000,"util":9,"trend":"down","status":"billnouse","contracted":49000,"usedVolume":4410,"unit":"matches/mo"}],"aiQuestion":"Is Chubb at churn risk?","aiAnswer":"<b>42</b> (Critical). B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700. Escalate churn risk to CSM + Finance before May 1, 2027 renewal (CSM + Finance).","insights":[{"tag":"risk","label":"⚠ Risk","title":"Utilization critically low","desc":"B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700","action":""},{"tag":"risk","label":"⚠ Risk","title":"Data feed gap","desc":"Last upload Feb 3, 2026 — 7 months of silence","action":""},{"tag":"fin","label":"⇄ Reconciliation · CSM + Finance","title":"Billing mismatch","desc":"Billing mismatch: paying for volume not consumed","action":"→ Escalate churn risk to CSM + Finance before May 1, 2027 renewal"}],"narrative":"Chubb is currently rated <b>Critical</b> at <b>42</b>. B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700. Escalate churn risk to CSM + Finance before May 1, 2027 renewal (CSM + Finance).","evidence":["B2B Activation utilization at 15% — billed 18,000 records/mo, using 2,700","Last upload Feb 3, 2026 — 7 months of silence","Billing mismatch: paying for volume not consumed"],"recommendedAction":"Escalate churn risk to CSM + Finance before May 1, 2027 renewal","actionOwner":"CSM + Finance","riskFlags":["Upload silence (7 mo)","Billing mismatch"]},"constellation-brands":{"id":"constellation-brands","name":"Constellation Brands","sub":"SFDC #001f200001f8OTNAA2","billingMetric":"RUM","avatar":"CB","acv":"$179K","tenure":"Apr 19, 2017","renewal":"189 days","renewalUrgency":"green","score":56,"previousScore":68,"status":"at_risk","delta":-12,"productsOwned":5,"productsUsed":5,"drivers":[{"name":"Utilization","value":54,"delta":-12,"color":"red","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":58,"delta":-6,"color":"red","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":64,"delta":-4,"color":"amber","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":50,"delta":-10,"color":"red","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":56,"delta":-8,"color":"red","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","category":"records/mo","bought":97000,"used":65960,"billed":97000,"util":68,"trend":"down","status":"under","contracted":97000,"usedVolume":65960,"unit":"records/mo"},{"id":"activation","name":"Activation","category":"records/mo","bought":108000,"used":62640,"billed":108000,"util":58,"trend":"down","status":"under","contracted":108000,"usedVolume":62640,"unit":"records/mo"},{"id":"authenticated-traffic-solution","name":"Authenticated Traffic Solution","category":"records/mo","bought":86000,"used":55040,"billed":86000,"util":64,"trend":"down","status":"under","contracted":86000,"usedVolume":55040,"unit":"records/mo"},{"id":"measurement-enablement","name":"Measurement Enablement","category":"queries/mo","bought":67000,"used":44890,"billed":67000,"util":67,"trend":"down","status":"under","contracted":67000,"usedVolume":44890,"unit":"queries/mo"},{"id":"3p-attribute-data-append","name":"3P Attribute Data Append","category":"segments/mo","bought":47000,"used":23500,"billed":47000,"util":50,"trend":"down","status":"under","contracted":47000,"usedVolume":23500,"unit":"segments/mo"}],"aiQuestion":"What's driving Constellation Brands's risk?","aiAnswer":"<b>56</b> (At Risk). Enhanced Client-Side Tag utilization slipping to 68%. Schedule value review; adoption + renewal plan (CSM).","insights":[{"tag":"risk","label":"⚠ Risk · CSM","title":"Adoption declining","desc":"Enhanced Client-Side Tag utilization slipping to 68%","action":"→ Schedule value review; adoption + renewal plan"},{"tag":"risk","label":"⚠ Risk","title":"Flagged in CRM","desc":"Flagged as risk in CRM","action":""},{"tag":"risk","label":"⚠ Risk","title":"Adoption declining","desc":"Adoption trending down QoQ","action":""}],"narrative":"Constellation Brands is currently rated <b>At Risk</b> at <b>56</b>. Enhanced Client-Side Tag utilization slipping to 68%. Schedule value review; adoption + renewal plan (CSM).","evidence":["Enhanced Client-Side Tag utilization slipping to 68%","Flagged as risk in CRM","Adoption trending down QoQ"],"recommendedAction":"Schedule value review; adoption + renewal plan","actionOwner":"CSM","riskFlags":["Flagged risk (CRM)"]},"taxquotes":{"id":"taxquotes","name":"TaxQuotes","sub":"SFDC #001PP00000CKuDeYAL","billingMetric":"RUM","avatar":"T","acv":"$110K","tenure":"May 13, 2024","renewal":"262 days","renewalUrgency":"green","score":56,"previousScore":68,"status":"at_risk","delta":-12,"productsOwned":3,"productsUsed":3,"drivers":[{"name":"Utilization","value":56,"delta":-12,"color":"red","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":54,"delta":-6,"color":"red","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":68,"delta":-4,"color":"amber","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":48,"delta":-10,"color":"red","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":60,"delta":-8,"color":"amber","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","category":"records/mo","bought":54000,"used":31860,"billed":54000,"util":59,"trend":"down","status":"under","contracted":54000,"usedVolume":31860,"unit":"records/mo"},{"id":"activation","name":"Activation","category":"records/mo","bought":19000,"used":9690,"billed":19000,"util":51,"trend":"down","status":"under","contracted":19000,"usedVolume":9690,"unit":"records/mo"},{"id":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","category":"matches/mo","bought":53000,"used":26500,"billed":53000,"util":50,"trend":"down","status":"under","contracted":53000,"usedVolume":26500,"unit":"matches/mo"}],"aiQuestion":"What's driving TaxQuotes's risk?","aiAnswer":"<b>56</b> (At Risk). Enhanced Client-Side Tag utilization slipping to 59%. Schedule value review; adoption + renewal plan (CSM).","insights":[{"tag":"risk","label":"⚠ Risk · CSM","title":"Adoption declining","desc":"Enhanced Client-Side Tag utilization slipping to 59%","action":"→ Schedule value review; adoption + renewal plan"},{"tag":"risk","label":"⚠ Risk","title":"Flagged in CRM","desc":"Flagged as risk in CRM","action":""},{"tag":"risk","label":"⚠ Risk","title":"Adoption declining","desc":"Adoption trending down QoQ","action":""}],"narrative":"TaxQuotes is currently rated <b>At Risk</b> at <b>56</b>. Enhanced Client-Side Tag utilization slipping to 59%. Schedule value review; adoption + renewal plan (CSM).","evidence":["Enhanced Client-Side Tag utilization slipping to 59%","Flagged as risk in CRM","Adoption trending down QoQ"],"recommendedAction":"Schedule value review; adoption + renewal plan","actionOwner":"CSM","riskFlags":["Flagged risk (CRM)"]},"franklin-templeton-comp":{"id":"franklin-templeton-comp","name":"Franklin Templeton Comp","sub":"SFDC #001f200001f947LAAQ","billingMetric":"RUM","avatar":"FT","acv":"$258K","tenure":"Nov 7, 2019","renewal":"75 days","renewalUrgency":"amber","score":58,"previousScore":70,"status":"at_risk","delta":-12,"productsOwned":2,"productsUsed":2,"drivers":[{"name":"Utilization","value":52,"delta":-12,"color":"red","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":60,"delta":-6,"color":"amber","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":70,"delta":-4,"color":"amber","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":56,"delta":-10,"color":"red","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":58,"delta":-8,"color":"red","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"b2b-activation","name":"B2B Activation","category":"records/mo","bought":45000,"used":27000,"billed":45000,"util":60,"trend":"down","status":"under","contracted":45000,"usedVolume":27000,"unit":"records/mo"},{"id":"enhanced-matching-for-google-customer-match-b2b","name":"Enhanced Matching for Google Customer Match (B2B)","category":"matches/mo","bought":110000,"used":60500,"billed":110000,"util":55,"trend":"down","status":"under","contracted":110000,"usedVolume":60500,"unit":"matches/mo"}],"aiQuestion":"What's driving Franklin Templeton Comp's risk?","aiAnswer":"<b>58</b> (At Risk). B2B Activation utilization slipping to 60%. Schedule value review; adoption + renewal plan (CSM).","insights":[{"tag":"risk","label":"⚠ Risk · CSM","title":"Adoption declining","desc":"B2B Activation utilization slipping to 60%","action":"→ Schedule value review; adoption + renewal plan"},{"tag":"risk","label":"⚠ Risk","title":"Data feed gap","desc":"Upload gap since Apr 20, 2026","action":""},{"tag":"risk","label":"⚠ Risk","title":"Renewal window closing","desc":"Renewal Nov 7, 2026 (75d) — action window closing","action":""}],"narrative":"Franklin Templeton Comp is currently rated <b>At Risk</b> at <b>58</b>. B2B Activation utilization slipping to 60%. Schedule value review; adoption + renewal plan (CSM).","evidence":["B2B Activation utilization slipping to 60%","Upload gap since Apr 20, 2026","Renewal Nov 7, 2026 (75d) — action window closing"],"recommendedAction":"Schedule value review; adoption + renewal plan","actionOwner":"CSM","riskFlags":["Upload gap (4 mo)","Renewal in 75d"]},"lampsplus":{"id":"lampsplus","name":"LampsPlus","sub":"SFDC #001f200001f8OWRAA2","billingMetric":"Tokens","avatar":"L","acv":"$61K","tenure":"Jan 1, 2018","renewal":"99 days","renewalUrgency":"green","score":69,"previousScore":73,"status":"watch","delta":-4,"productsOwned":5,"productsUsed":5,"drivers":[{"name":"Utilization","value":68,"delta":-4,"color":"amber","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":66,"delta":-2,"color":"amber","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":82,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":64,"delta":-3,"color":"amber","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":70,"delta":-2,"color":"amber","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"liveramp-platform-and-usage","name":"LiveRamp Platform and Usage","category":"records/mo","bought":22000,"used":15840,"billed":22000,"util":72,"trend":"down","status":"healthy","contracted":22000,"usedVolume":15840,"unit":"records/mo"},{"id":"baseline-support","name":"Baseline Support","category":"records/mo","bought":11000,"used":7920,"billed":11000,"util":72,"trend":"down","status":"healthy","contracted":11000,"usedVolume":7920,"unit":"records/mo"},{"id":"conversions-api-for-bing","name":"Conversions API for Bing","category":"conversions/mo","bought":27000,"used":21060,"billed":27000,"util":78,"trend":"down","status":"healthy","contracted":27000,"usedVolume":21060,"unit":"conversions/mo"},{"id":"conversions-api-for-criteo","name":"Conversions API for Criteo","category":"conversions/mo","bought":10000,"used":7200,"billed":10000,"util":72,"trend":"up","status":"healthy","contracted":10000,"usedVolume":7200,"unit":"conversions/mo"},{"id":"conversions-api-for-google-store-sales","name":"Conversions API for Google Store Sales","category":"conversions/mo","bought":18000,"used":12960,"billed":18000,"util":72,"trend":"down","status":"healthy","contracted":18000,"usedVolume":12960,"unit":"conversions/mo"}],"aiQuestion":"Anything to watch on LampsPlus?","aiAnswer":"<b>69</b> (Watch). High utilization (~72%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~72%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"LampsPlus is currently rated <b>Watch</b> at <b>69</b>. High utilization (~72%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~72%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"rent-a-center":{"id":"rent-a-center","name":"Rent-A-Center","sub":"SFDC #001f200001f8OWiAAM","billingMetric":"RUM","avatar":"R","acv":"$236K","tenure":"Oct 1, 2017","renewal":"38 days","renewalUrgency":"red","score":71,"previousScore":75,"status":"watch","delta":-4,"productsOwned":3,"productsUsed":3,"drivers":[{"name":"Utilization","value":70,"delta":-4,"color":"amber","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":72,"delta":-2,"color":"amber","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":80,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":66,"delta":-3,"color":"amber","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":74,"delta":-2,"color":"amber","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":85000,"used":61200,"billed":85000,"util":72,"trend":"down","status":"healthy","contracted":85000,"usedVolume":61200,"unit":"records/mo"},{"id":"conversions-api-for-google-campaign-manager","name":"Conversions API for Google Campaign Manager","category":"conversions/mo","bought":83000,"used":55610,"billed":83000,"util":67,"trend":"down","status":"under","contracted":83000,"usedVolume":55610,"unit":"conversions/mo"},{"id":"technical-ongoing-services","name":"Technical: Ongoing Services","category":"records/mo","bought":81000,"used":63180,"billed":81000,"util":78,"trend":"down","status":"healthy","contracted":81000,"usedVolume":63180,"unit":"records/mo"}],"aiQuestion":"Anything to watch on Rent-A-Center?","aiAnswer":"<b>71</b> (Watch). High utilization (~72%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion","title":"Utilization signal","desc":"High utilization (~72%) across products","action":""},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"risk","label":"⚠ Risk · Sales","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":"→ Expansion conversation — near commit ceiling"}],"narrative":"Rent-A-Center is currently rated <b>Watch</b> at <b>71</b>. High utilization (~72%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~72%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":["Renewal in 38d"]},"georgia-pacific-llc":{"id":"georgia-pacific-llc","name":"Georgia-Pacific LLC","sub":"SFDC #001f200001f8OR0AAM","billingMetric":"RUM","avatar":"GL","acv":"$297K","tenure":"Feb 9, 2018","renewal":"38 days","renewalUrgency":"red","score":74,"previousScore":78,"status":"watch","delta":-4,"productsOwned":2,"productsUsed":2,"drivers":[{"name":"Utilization","value":72,"delta":-4,"color":"amber","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":74,"delta":-2,"color":"amber","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":84,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":70,"delta":-3,"color":"amber","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":72,"delta":-2,"color":"amber","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":129000,"used":86430,"billed":129000,"util":67,"trend":"down","status":"under","contracted":129000,"usedVolume":86430,"unit":"records/mo"},{"id":"3p-data-segments","name":"3P Data Segments","category":"segments/mo","bought":65000,"used":43550,"billed":65000,"util":67,"trend":"down","status":"under","contracted":65000,"usedVolume":43550,"unit":"segments/mo"}],"aiQuestion":"Anything to watch on Georgia-Pacific LLC?","aiAnswer":"<b>74</b> (Watch). High utilization (~67%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion","title":"Utilization signal","desc":"High utilization (~67%) across products","action":""},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"risk","label":"⚠ Risk · Sales","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":"→ Expansion conversation — near commit ceiling"}],"narrative":"Georgia-Pacific LLC is currently rated <b>Watch</b> at <b>74</b>. High utilization (~67%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~67%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":["Renewal in 38d"]},"metlife":{"id":"metlife","name":"Metlife","sub":"SFDC #0018W00002GBxzSQAT","billingMetric":"RUM","avatar":"M","acv":"$114K","tenure":"Mar 28, 2023","renewal":"495 days","renewalUrgency":"green","score":75,"previousScore":79,"status":"watch","delta":-4,"productsOwned":4,"productsUsed":4,"drivers":[{"name":"Utilization","value":74,"delta":-4,"color":"amber","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":70,"delta":-2,"color":"amber","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":86,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":72,"delta":-3,"color":"amber","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":78,"delta":-2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","category":"records/mo","bought":29000,"used":19430,"billed":29000,"util":67,"trend":"up","status":"under","contracted":29000,"usedVolume":19430,"unit":"records/mo"},{"id":"authenticated-traffic-solution","name":"Authenticated Traffic Solution","category":"records/mo","bought":31000,"used":24800,"billed":31000,"util":80,"trend":"down","status":"healthy","contracted":31000,"usedVolume":24800,"unit":"records/mo"},{"id":"b2b-activation","name":"B2B Activation","category":"records/mo","bought":51000,"used":39270,"billed":51000,"util":77,"trend":"down","status":"healthy","contracted":51000,"usedVolume":39270,"unit":"records/mo"},{"id":"3p-data-segments","name":"3P Data Segments","category":"segments/mo","bought":43000,"used":32250,"billed":43000,"util":75,"trend":"down","status":"healthy","contracted":43000,"usedVolume":32250,"unit":"segments/mo"}],"aiQuestion":"Anything to watch on Metlife?","aiAnswer":"<b>75</b> (Watch). High utilization (~67%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~67%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"Metlife is currently rated <b>Watch</b> at <b>75</b>. High utilization (~67%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~67%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"raymourandflanigan":{"id":"raymourandflanigan","name":"Raymour&Flanigan","sub":"SFDC #001f200001f8ON7AAM","billingMetric":"Each","avatar":"R","acv":"$106K","tenure":"Mar 14, 2016","renewal":"220 days","renewalUrgency":"green","score":82,"previousScore":78,"status":"healthy","delta":4,"productsOwned":3,"productsUsed":3,"drivers":[{"name":"Utilization","value":82,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":82,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":86,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":80,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":84,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"conversions-api-for-google-campaign-manager","name":"Conversions API for Google Campaign Manager","category":"conversions/mo","bought":43000,"used":36550,"billed":43000,"util":85,"trend":"flat","status":"healthy","contracted":43000,"usedVolume":36550,"unit":"conversions/mo"},{"id":"conversions-api-for-meta","name":"Conversions API for Meta","category":"conversions/mo","bought":44000,"used":41800,"billed":44000,"util":95,"trend":"up","status":"healthy","contracted":44000,"usedVolume":41800,"unit":"conversions/mo"},{"id":"partner-attribution","name":"Partner Attribution","category":"queries/mo","bought":19000,"used":15960,"billed":19000,"util":84,"trend":"up","status":"healthy","contracted":19000,"usedVolume":15960,"unit":"queries/mo"}],"aiQuestion":"Is Raymour&Flanigan a reference-account candidate?","aiAnswer":"<b>82</b> (Healthy). High utilization (~85%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~85%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"Raymour&Flanigan is currently rated <b>Healthy</b> at <b>82</b>. High utilization (~85%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~85%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"pacsun":{"id":"pacsun","name":"PacSun","sub":"SFDC #001f200001f8OW0AAM","billingMetric":"RUM","avatar":"P","acv":"$137K","tenure":"Jul 14, 2017","renewal":"526 days","renewalUrgency":"green","score":82,"previousScore":78,"status":"healthy","delta":4,"productsOwned":4,"productsUsed":4,"drivers":[{"name":"Utilization","value":83,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":80,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":85,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":81,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":82,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":34000,"used":29240,"billed":34000,"util":86,"trend":"up","status":"healthy","contracted":34000,"usedVolume":29240,"unit":"records/mo"},{"id":"premier-services","name":"Premier Services","category":"records/mo","bought":38000,"used":33440,"billed":38000,"util":88,"trend":"flat","status":"healthy","contracted":38000,"usedVolume":33440,"unit":"records/mo"},{"id":"conversion-api-for-tiktok","name":"Conversion API for TikTok","category":"conversions/mo","bought":36000,"used":34560,"billed":36000,"util":96,"trend":"flat","status":"healthy","contracted":36000,"usedVolume":34560,"unit":"conversions/mo"},{"id":"conversion-api-for-google-store-sales","name":"Conversion API for Google Store Sales","category":"conversions/mo","bought":26000,"used":22880,"billed":26000,"util":88,"trend":"flat","status":"healthy","contracted":26000,"usedVolume":22880,"unit":"conversions/mo"}],"aiQuestion":"Is PacSun a reference-account candidate?","aiAnswer":"<b>82</b> (Healthy). High utilization (~86%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~86%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"PacSun is currently rated <b>Healthy</b> at <b>82</b>. High utilization (~86%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~86%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"lean-media-inc":{"id":"lean-media-inc","name":"Lean Media, Inc.","sub":"SFDC #001f200001f8OVcAAM","billingMetric":"RUM","avatar":"LM","acv":"$108K","tenure":"Mar 27, 2017","renewal":"215 days","renewalUrgency":"green","score":83,"previousScore":79,"status":"healthy","delta":4,"productsOwned":2,"productsUsed":2,"drivers":[{"name":"Utilization","value":82,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":80,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":88,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":84,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":84,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":27000,"used":23490,"billed":27000,"util":87,"trend":"flat","status":"healthy","contracted":27000,"usedVolume":23490,"unit":"records/mo"},{"id":"reseller-activation","name":"Reseller Activation","category":"records/mo","bought":19000,"used":18240,"billed":19000,"util":96,"trend":"flat","status":"healthy","contracted":19000,"usedVolume":18240,"unit":"records/mo"}],"aiQuestion":"Is Lean Media, Inc. a reference-account candidate?","aiAnswer":"<b>83</b> (Healthy). High utilization (~87%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~87%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"Lean Media, Inc. is currently rated <b>Healthy</b> at <b>83</b>. High utilization (~87%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~87%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"cornerstone-brands-inc":{"id":"cornerstone-brands-inc","name":"Cornerstone Brands, Inc.","sub":"SFDC #001f200001f91U8AA","billingMetric":"RUM","avatar":"CB","acv":"$154K","tenure":"Aug 31, 2022","renewal":"372 days","renewalUrgency":"green","score":84,"previousScore":80,"status":"healthy","delta":4,"productsOwned":1,"productsUsed":1,"drivers":[{"name":"Utilization","value":84,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":82,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":90,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":80,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":86,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":42000,"used":35280,"billed":42000,"util":84,"trend":"down","status":"healthy","contracted":42000,"usedVolume":35280,"unit":"records/mo"}],"aiQuestion":"Is Cornerstone Brands, Inc. a reference-account candidate?","aiAnswer":"<b>84</b> (Healthy). High utilization (~84%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~84%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"Cornerstone Brands, Inc. is currently rated <b>Healthy</b> at <b>84</b>. High utilization (~84%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~84%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"the-travelers-companies":{"id":"the-travelers-companies","name":"The Travelers Companies","sub":"SFDC #001f200001f95ivAAA","billingMetric":"RUM","avatar":"TT","acv":"$350K","tenure":"Jan 12, 2023","renewal":"506 days","renewalUrgency":"green","score":86,"previousScore":82,"status":"healthy","delta":4,"productsOwned":3,"productsUsed":3,"drivers":[{"name":"Utilization","value":86,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":84,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":92,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":82,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":88,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":71000,"used":66740,"billed":71000,"util":94,"trend":"up","status":"healthy","contracted":71000,"usedVolume":66740,"unit":"records/mo"},{"id":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","category":"matches/mo","bought":99000,"used":82170,"billed":99000,"util":83,"trend":"flat","status":"healthy","contracted":99000,"usedVolume":82170,"unit":"matches/mo"},{"id":"premier-services","name":"Premier Services","category":"records/mo","bought":112000,"used":94080,"billed":112000,"util":84,"trend":"down","status":"healthy","contracted":112000,"usedVolume":94080,"unit":"records/mo"}],"aiQuestion":"Is The Travelers Companies a reference-account candidate?","aiAnswer":"<b>86</b> (Healthy). High utilization (~94%) across products. Expansion conversation — near commit ceiling (Sales).","insights":[{"tag":"grow","label":"↗ Expansion · Sales","title":"Utilization signal","desc":"High utilization (~94%) across products","action":"→ Expansion conversation — near commit ceiling"},{"tag":"fin","label":"⇄ Reconciliation","title":"Clean billing & engagement","desc":"Consistent engagement and clean AR","action":""},{"tag":"grow","label":"↗ Expansion","title":"Expansion whitespace","desc":"Whitespace on additional product lines","action":""}],"narrative":"The Travelers Companies is currently rated <b>Healthy</b> at <b>86</b>. High utilization (~94%) across products. Expansion conversation — near commit ceiling (Sales).","evidence":["High utilization (~94%) across products","Consistent engagement and clean AR","Whitespace on additional product lines"],"recommendedAction":"Expansion conversation — near commit ceiling","actionOwner":"Sales","riskFlags":[]},"circle-k":{"id":"circle-k","name":"Circle K","sub":"SFDC #001f200001f94ypAAA","billingMetric":"RUM, Impressions","avatar":"CK","acv":"$257K","tenure":"Apr 1, 2022","renewal":"220 days","renewalUrgency":"green","score":86,"previousScore":82,"status":"healthy","delta":4,"productsOwned":5,"productsUsed":5,"drivers":[{"name":"Utilization","value":88,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":86,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":88,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":84,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":86,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":51000,"used":59670,"billed":51000,"util":117,"trend":"flat","status":"over","contracted":51000,"usedVolume":59670,"unit":"records/mo"},{"id":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","category":"matches/mo","bought":126000,"used":105840,"billed":126000,"util":84,"trend":"up","status":"healthy","contracted":126000,"usedVolume":105840,"unit":"matches/mo"},{"id":"premier-services","name":"Premier Services","category":"records/mo","bought":46000,"used":42780,"billed":46000,"util":93,"trend":"flat","status":"healthy","contracted":46000,"usedVolume":42780,"unit":"records/mo"},{"id":"conversions-api-for-meta","name":"Conversions API for Meta","category":"conversions/mo","bought":88000,"used":80960,"billed":88000,"util":92,"trend":"up","status":"healthy","contracted":88000,"usedVolume":80960,"unit":"conversions/mo"},{"id":"monetization-distribution","name":"Monetization Distribution","category":"impressions/mo","bought":54000,"used":46440,"billed":54000,"util":86,"trend":"down","status":"healthy","contracted":54000,"usedVolume":46440,"unit":"impressions/mo"}],"aiQuestion":"Is Circle K a reference-account candidate?","aiAnswer":"<b>86</b> (Healthy). Activation running 16% over commit. Right-size / expand contract to match usage (Sales).","insights":[{"tag":"grow","label":"↗ Expansion","title":"Running over commit","desc":"Activation running 16% over commit","action":""},{"tag":"grow","label":"↗ Expansion","title":"Utilization signal","desc":"Utilization strong across 5 products","action":""},{"tag":"risk","label":"⚠ Risk · Sales","title":"Clean billing & engagement","desc":"Healthy payment history and engagement","action":"→ Right-size / expand contract to match usage"}],"narrative":"Circle K is currently rated <b>Healthy</b> at <b>86</b>. Activation running 16% over commit. Right-size / expand contract to match usage (Sales).","evidence":["Activation running 16% over commit","Utilization strong across 5 products","Healthy payment history and engagement"],"recommendedAction":"Right-size / expand contract to match usage","actionOwner":"Sales","riskFlags":["Over-usage"]},"lovesac":{"id":"lovesac","name":"Lovesac","sub":"SFDC #001f200001f8OTzAAM","billingMetric":"RUM, Events","avatar":"L","acv":"$305K","tenure":"Nov 15, 2017","renewal":"250 days","renewalUrgency":"green","score":87,"previousScore":83,"status":"healthy","delta":4,"productsOwned":5,"productsUsed":5,"drivers":[{"name":"Utilization","value":90,"delta":4,"color":"green","weightPct":30,"related":[],"tooltip":"How much of the purchased capacity or service the client is actually using."},{"name":"Value Delivered","value":88,"delta":5,"color":"green","weightPct":30,"related":[],"tooltip":"Profitability of the account: Fixed Subscription + Variable Pay − Infra/Cloud Cost."},{"name":"Timely Payments","value":84,"delta":1,"color":"green","weightPct":20,"related":[],"tooltip":"Whether the client pays invoices on time, with minimal overdue balance."},{"name":"Products","value":86,"delta":3,"color":"green","weightPct":10,"related":[],"tooltip":"Number and depth of products the client has purchased, adopted, and actively uses."},{"name":"Relationship","value":82,"delta":2,"color":"green","weightPct":10,"related":[],"tooltip":"Strength of the client relationship, including engagement, satisfaction, stakeholder support, and renewal confidence."}],"products":[{"id":"activation","name":"Activation","category":"records/mo","bought":5000000,"used":6300000,"billed":5000000,"util":126,"trend":"up","status":"over","contracted":5000000,"usedVolume":6300000,"unit":"records/mo"},{"id":"conversions-api-for-meta","name":"Conversions API for Meta","category":"conversions/mo","bought":1,"used":1,"billed":1,"util":100,"trend":"flat","status":"healthy","contracted":1,"usedVolume":1,"unit":"conversions/mo"},{"id":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","category":"matches/mo","bought":3000000,"used":2300000,"billed":2300000,"util":77,"trend":"up","status":"healthy","contracted":3000000,"usedVolume":2300000,"unit":"matches/mo"},{"id":"conversion-api-for-pinterest","name":"Conversion API For Pinterest","category":"conversions/mo","bought":1,"used":1,"billed":1,"util":100,"trend":"flat","status":"healthy","contracted":1,"usedVolume":1,"unit":"conversions/mo"},{"id":"measurement","name":"Measurement","category":"events/mo","bought":3000000,"used":2760000,"billed":3000000,"util":92,"trend":"flat","status":"healthy","contracted":3000000,"usedVolume":2760000,"unit":"events/mo"}],"aiQuestion":"Is Lovesac a reference-account candidate?","aiAnswer":"<b>87</b> (Healthy). Activation running 27% over commit. Right-size / expand contract to match usage (Sales).","insights":[{"tag":"grow","label":"↗ Expansion","title":"Running over commit","desc":"Activation running 27% over commit","action":""},{"tag":"grow","label":"↗ Expansion","title":"Utilization signal","desc":"Utilization strong across 5 products","action":""},{"tag":"risk","label":"⚠ Risk · Sales","title":"Clean billing & engagement","desc":"Healthy payment history and engagement","action":"→ Right-size / expand contract to match usage"}],"narrative":"Lovesac is currently rated <b>Healthy</b> at <b>87</b>. Activation running 27% over commit. Right-size / expand contract to match usage (Sales).","evidence":["Activation running 27% over commit","Utilization strong across 5 products","Healthy payment history and engagement"],"recommendedAction":"Right-size / expand contract to match usage","actionOwner":"Sales","riskFlags":["Over-usage"]}},"trends":{"chubb":{"clientId":"chubb","clientName":"Chubb","products":[{"productId":"b2b-activation","name":"B2B Activation","unit":"records/mo","series":[{"month":"2026-02","value":961},{"month":"2026-03","value":564},{"month":"2026-04","value":364},{"month":"2026-05","value":227},{"month":"2026-06","value":140},{"month":"2026-07","value":97}],"momPct":-31,"vsCommitPct":-85,"signal":"risk"},{"productId":"enhanced-matching-for-google-customer-match-b2b","name":"Enhanced Matching for Google Customer Match (B2B)","unit":"matches/mo","series":[{"month":"2026-02","value":2099},{"month":"2026-03","value":1261},{"month":"2026-04","value":906},{"month":"2026-05","value":588},{"month":"2026-06","value":355},{"month":"2026-07","value":255}],"momPct":-28,"vsCommitPct":-91,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":2}},"constellation-brands":{"clientId":"constellation-brands","clientName":"Constellation Brands","products":[{"productId":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","unit":"records/mo","series":[{"month":"2026-02","value":54707},{"month":"2026-03","value":45127},{"month":"2026-04","value":37213},{"month":"2026-05","value":32974},{"month":"2026-06","value":29055},{"month":"2026-07","value":28679}],"momPct":-1,"vsCommitPct":-32,"signal":"risk"},{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":45468},{"month":"2026-03","value":39455},{"month":"2026-04","value":38284},{"month":"2026-05","value":39733},{"month":"2026-06","value":40655},{"month":"2026-07","value":38011}],"momPct":-7,"vsCommitPct":-42,"signal":"risk"},{"productId":"authenticated-traffic-solution","name":"Authenticated Traffic Solution","unit":"records/mo","series":[{"month":"2026-02","value":43894},{"month":"2026-03","value":44362},{"month":"2026-04","value":39885},{"month":"2026-05","value":40424},{"month":"2026-06","value":42658},{"month":"2026-07","value":39013}],"momPct":-9,"vsCommitPct":-36,"signal":"risk"},{"productId":"measurement-enablement","name":"Measurement Enablement","unit":"queries/mo","series":[{"month":"2026-02","value":26669},{"month":"2026-03","value":27197},{"month":"2026-04","value":28757},{"month":"2026-05","value":28137},{"month":"2026-06","value":25420},{"month":"2026-07","value":24197}],"momPct":-5,"vsCommitPct":-33,"signal":"risk"},{"productId":"3p-attribute-data-append","name":"3P Attribute Data Append","unit":"segments/mo","series":[{"month":"2026-02","value":24174},{"month":"2026-03","value":21016},{"month":"2026-04","value":18481},{"month":"2026-05","value":16437},{"month":"2026-06","value":14408},{"month":"2026-07","value":13848}],"momPct":-4,"vsCommitPct":-50,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":5}},"taxquotes":{"clientId":"taxquotes","clientName":"TaxQuotes","products":[{"productId":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","unit":"records/mo","series":[{"month":"2026-02","value":23471},{"month":"2026-03","value":20041},{"month":"2026-04","value":17633},{"month":"2026-05","value":17623},{"month":"2026-06","value":15723},{"month":"2026-07","value":15040}],"momPct":-4,"vsCommitPct":-41,"signal":"risk"},{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":7145},{"month":"2026-03","value":6658},{"month":"2026-04","value":5638},{"month":"2026-05","value":5842},{"month":"2026-06","value":5062},{"month":"2026-07","value":5350}],"momPct":6,"vsCommitPct":-49,"signal":"risk"},{"productId":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","unit":"matches/mo","series":[{"month":"2026-02","value":21655},{"month":"2026-03","value":18824},{"month":"2026-04","value":18070},{"month":"2026-05","value":15403},{"month":"2026-06","value":14570},{"month":"2026-07","value":15308}],"momPct":5,"vsCommitPct":-50,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":3}},"franklin-templeton-comp":{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","products":[{"productId":"b2b-activation","name":"B2B Activation","unit":"records/mo","series":[{"month":"2026-02","value":16368},{"month":"2026-03","value":16539},{"month":"2026-04","value":17453},{"month":"2026-05","value":14720},{"month":"2026-06","value":12994},{"month":"2026-07","value":10752}],"momPct":-17,"vsCommitPct":-40,"signal":"risk"},{"productId":"enhanced-matching-for-google-customer-match-b2b","name":"Enhanced Matching for Google Customer Match (B2B)","unit":"matches/mo","series":[{"month":"2026-02","value":44892},{"month":"2026-03","value":42973},{"month":"2026-04","value":42500},{"month":"2026-05","value":35685},{"month":"2026-06","value":29685},{"month":"2026-07","value":29270}],"momPct":-1,"vsCommitPct":-45,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":2}},"lampsplus":{"clientId":"lampsplus","clientName":"LampsPlus","products":[{"productId":"liveramp-platform-and-usage","name":"LiveRamp Platform and Usage","unit":"records/mo","series":[{"month":"2026-02","value":16235},{"month":"2026-03","value":17166},{"month":"2026-04","value":17689},{"month":"2026-05","value":16738},{"month":"2026-06","value":16103},{"month":"2026-07","value":16207}],"momPct":1,"vsCommitPct":-28,"signal":"risk"},{"productId":"baseline-support","name":"Baseline Support","unit":"records/mo","series":[{"month":"2026-02","value":5522},{"month":"2026-03","value":5733},{"month":"2026-04","value":5241},{"month":"2026-05","value":5095},{"month":"2026-06","value":5032},{"month":"2026-07","value":5234}],"momPct":4,"vsCommitPct":-28,"signal":"risk"},{"productId":"conversions-api-for-bing","name":"Conversions API for Bing","unit":"conversions/mo","series":[{"month":"2026-02","value":18193},{"month":"2026-03","value":17065},{"month":"2026-04","value":16010},{"month":"2026-05","value":15652},{"month":"2026-06","value":15558},{"month":"2026-07","value":14668}],"momPct":-6,"vsCommitPct":-22,"signal":"risk"},{"productId":"conversions-api-for-criteo","name":"Conversions API for Criteo","unit":"conversions/mo","series":[{"month":"2026-02","value":7521},{"month":"2026-03","value":6845},{"month":"2026-04","value":7137},{"month":"2026-05","value":7307},{"month":"2026-06","value":7590},{"month":"2026-07","value":7793}],"momPct":3,"vsCommitPct":-28,"signal":"upsell"},{"productId":"conversions-api-for-google-store-sales","name":"Conversions API for Google Store Sales","unit":"conversions/mo","series":[{"month":"2026-02","value":8613},{"month":"2026-03","value":7837},{"month":"2026-04","value":7066},{"month":"2026-05","value":6538},{"month":"2026-06","value":5999},{"month":"2026-07","value":5751}],"momPct":-4,"vsCommitPct":-28,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":1,"riskSignals":4}},"rent-a-center":{"clientId":"rent-a-center","clientName":"Rent-A-Center","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":48346},{"month":"2026-03","value":49776},{"month":"2026-04","value":46288},{"month":"2026-05","value":45955},{"month":"2026-06","value":46037},{"month":"2026-07","value":44195}],"momPct":-4,"vsCommitPct":-28,"signal":"risk"},{"productId":"conversions-api-for-google-campaign-manager","name":"Conversions API for Google Campaign Manager","unit":"conversions/mo","series":[{"month":"2026-02","value":44689},{"month":"2026-03","value":42392},{"month":"2026-04","value":43501},{"month":"2026-05","value":43988},{"month":"2026-06","value":41343},{"month":"2026-07","value":40999}],"momPct":-1,"vsCommitPct":-33,"signal":"risk"},{"productId":"technical-ongoing-services","name":"Technical: Ongoing Services","unit":"records/mo","series":[{"month":"2026-02","value":56192},{"month":"2026-03","value":54971},{"month":"2026-04","value":49900},{"month":"2026-05","value":50218},{"month":"2026-06","value":51297},{"month":"2026-07","value":50858}],"momPct":-1,"vsCommitPct":-22,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":3}},"georgia-pacific-llc":{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":84706},{"month":"2026-03","value":79929},{"month":"2026-04","value":73683},{"month":"2026-05","value":72520},{"month":"2026-06","value":68096},{"month":"2026-07","value":62564}],"momPct":-8,"vsCommitPct":-33,"signal":"risk"},{"productId":"3p-data-segments","name":"3P Data Segments","unit":"segments/mo","series":[{"month":"2026-02","value":33924},{"month":"2026-03","value":32432},{"month":"2026-04","value":29333},{"month":"2026-05","value":27598},{"month":"2026-06","value":24949},{"month":"2026-07","value":25362}],"momPct":2,"vsCommitPct":-33,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":2}},"metlife":{"clientId":"metlife","clientName":"Metlife","products":[{"productId":"enhanced-client-side-tag","name":"Enhanced Client-Side Tag","unit":"records/mo","series":[{"month":"2026-02","value":14050},{"month":"2026-03","value":14321},{"month":"2026-04","value":14388},{"month":"2026-05","value":14587},{"month":"2026-06","value":15163},{"month":"2026-07","value":14597}],"momPct":-4,"vsCommitPct":-33,"signal":"upsell"},{"productId":"authenticated-traffic-solution","name":"Authenticated Traffic Solution","unit":"records/mo","series":[{"month":"2026-02","value":23975},{"month":"2026-03","value":24375},{"month":"2026-04","value":25080},{"month":"2026-05","value":23160},{"month":"2026-06","value":22783},{"month":"2026-07","value":22343}],"momPct":-2,"vsCommitPct":-20,"signal":"risk"},{"productId":"b2b-activation","name":"B2B Activation","unit":"records/mo","series":[{"month":"2026-02","value":37791},{"month":"2026-03","value":34861},{"month":"2026-04","value":33403},{"month":"2026-05","value":30665},{"month":"2026-06","value":31667},{"month":"2026-07","value":31324}],"momPct":-1,"vsCommitPct":-23,"signal":"risk"},{"productId":"3p-data-segments","name":"3P Data Segments","unit":"segments/mo","series":[{"month":"2026-02","value":30270},{"month":"2026-03","value":30420},{"month":"2026-04","value":27742},{"month":"2026-05","value":28217},{"month":"2026-06","value":26557},{"month":"2026-07","value":24253}],"momPct":-9,"vsCommitPct":-25,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":1,"riskSignals":3}},"raymourandflanigan":{"clientId":"raymourandflanigan","clientName":"Raymour&Flanigan","products":[{"productId":"conversions-api-for-google-campaign-manager","name":"Conversions API for Google Campaign Manager","unit":"conversions/mo","series":[{"month":"2026-02","value":35297},{"month":"2026-03","value":33767},{"month":"2026-04","value":33417},{"month":"2026-05","value":32921},{"month":"2026-06","value":35233},{"month":"2026-07","value":32911}],"momPct":-7,"vsCommitPct":-15,"signal":"stable"},{"productId":"conversions-api-for-meta","name":"Conversions API for Meta","unit":"conversions/mo","series":[{"month":"2026-02","value":48393},{"month":"2026-03","value":53039},{"month":"2026-04","value":54602},{"month":"2026-05","value":54186},{"month":"2026-06","value":54366},{"month":"2026-07","value":53196}],"momPct":-2,"vsCommitPct":-5,"signal":"upsell"},{"productId":"partner-attribution","name":"Partner Attribution","unit":"queries/mo","series":[{"month":"2026-02","value":17049},{"month":"2026-03","value":16954},{"month":"2026-04","value":18465},{"month":"2026-05","value":19894},{"month":"2026-06","value":21200},{"month":"2026-07","value":21969}],"momPct":4,"vsCommitPct":-16,"signal":"upsell"}],"kpis":{"overUsage":0,"upsellSignals":2,"riskSignals":0}},"pacsun":{"clientId":"pacsun","clientName":"PacSun","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":32802},{"month":"2026-03","value":32001},{"month":"2026-04","value":33351},{"month":"2026-05","value":36154},{"month":"2026-06","value":35092},{"month":"2026-07","value":32963}],"momPct":-6,"vsCommitPct":-14,"signal":"upsell"},{"productId":"premier-services","name":"Premier Services","unit":"records/mo","series":[{"month":"2026-02","value":40836},{"month":"2026-03","value":40200},{"month":"2026-04","value":42892},{"month":"2026-05","value":41660},{"month":"2026-06","value":40401},{"month":"2026-07","value":42716}],"momPct":6,"vsCommitPct":-12,"signal":"stable"},{"productId":"conversion-api-for-tiktok","name":"Conversion API for TikTok","unit":"conversions/mo","series":[{"month":"2026-02","value":35993},{"month":"2026-03","value":35911},{"month":"2026-04","value":34775},{"month":"2026-05","value":37974},{"month":"2026-06","value":36336},{"month":"2026-07","value":34236}],"momPct":-6,"vsCommitPct":-4,"signal":"stable"},{"productId":"conversion-api-for-google-store-sales","name":"Conversion API for Google Store Sales","unit":"conversions/mo","series":[{"month":"2026-02","value":31852},{"month":"2026-03","value":34584},{"month":"2026-04","value":36486},{"month":"2026-05","value":34260},{"month":"2026-06","value":35689},{"month":"2026-07","value":35520}],"momPct":0,"vsCommitPct":-12,"signal":"stable"}],"kpis":{"overUsage":0,"upsellSignals":1,"riskSignals":0}},"lean-media-inc":{"clientId":"lean-media-inc","clientName":"Lean Media, Inc.","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":25583},{"month":"2026-03","value":24314},{"month":"2026-04","value":24058},{"month":"2026-05","value":23499},{"month":"2026-06","value":25107},{"month":"2026-07","value":24103}],"momPct":-4,"vsCommitPct":-13,"signal":"stable"},{"productId":"reseller-activation","name":"Reseller Activation","unit":"records/mo","series":[{"month":"2026-02","value":20625},{"month":"2026-03","value":21592},{"month":"2026-04","value":21078},{"month":"2026-05","value":20938},{"month":"2026-06","value":20120},{"month":"2026-07","value":21310}],"momPct":6,"vsCommitPct":-4,"signal":"stable"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":0}},"cornerstone-brands-inc":{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":31922},{"month":"2026-03","value":32057},{"month":"2026-04","value":30298},{"month":"2026-05","value":28739},{"month":"2026-06","value":28818},{"month":"2026-07","value":30779}],"momPct":7,"vsCommitPct":-16,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":0,"riskSignals":1}},"the-travelers-companies":{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":85113},{"month":"2026-03","value":84215},{"month":"2026-04","value":90023},{"month":"2026-05","value":94396},{"month":"2026-06","value":97896},{"month":"2026-07","value":97849}],"momPct":0,"vsCommitPct":-6,"signal":"upsell"},{"productId":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","unit":"matches/mo","series":[{"month":"2026-02","value":75405},{"month":"2026-03","value":81074},{"month":"2026-04","value":84535},{"month":"2026-05","value":82809},{"month":"2026-06","value":80585},{"month":"2026-07","value":79085}],"momPct":-2,"vsCommitPct":-17,"signal":"stable"},{"productId":"premier-services","name":"Premier Services","unit":"records/mo","series":[{"month":"2026-02","value":120710},{"month":"2026-03","value":118787},{"month":"2026-04","value":117802},{"month":"2026-05","value":110024},{"month":"2026-06","value":109560},{"month":"2026-07","value":110752}],"momPct":1,"vsCommitPct":-16,"signal":"risk"}],"kpis":{"overUsage":0,"upsellSignals":1,"riskSignals":1}},"circle-k":{"clientId":"circle-k","clientName":"Circle K","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":73329},{"month":"2026-03","value":75821},{"month":"2026-04","value":76557},{"month":"2026-05","value":76812},{"month":"2026-06","value":73573},{"month":"2026-07","value":73083}],"momPct":-1,"vsCommitPct":17,"signal":"over_usage"},{"productId":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","unit":"matches/mo","series":[{"month":"2026-02","value":111311},{"month":"2026-03","value":112002},{"month":"2026-04","value":121939},{"month":"2026-05","value":130673},{"month":"2026-06","value":140546},{"month":"2026-07","value":131740}],"momPct":-6,"vsCommitPct":-16,"signal":"upsell"},{"productId":"premier-services","name":"Premier Services","unit":"records/mo","series":[{"month":"2026-02","value":52036},{"month":"2026-03","value":55821},{"month":"2026-04","value":60939},{"month":"2026-05","value":59364},{"month":"2026-06","value":56485},{"month":"2026-07","value":54162}],"momPct":-4,"vsCommitPct":-7,"signal":"stable"},{"productId":"conversions-api-for-meta","name":"Conversions API for Meta","unit":"conversions/mo","series":[{"month":"2026-02","value":98996},{"month":"2026-03","value":105019},{"month":"2026-04","value":102033},{"month":"2026-05","value":110522},{"month":"2026-06","value":114791},{"month":"2026-07","value":112855}],"momPct":-2,"vsCommitPct":-8,"signal":"upsell"},{"productId":"monetization-distribution","name":"Monetization Distribution","unit":"impressions/mo","series":[{"month":"2026-02","value":47796},{"month":"2026-03","value":46367},{"month":"2026-04","value":47823},{"month":"2026-05","value":44739},{"month":"2026-06","value":43968},{"month":"2026-07","value":44347}],"momPct":1,"vsCommitPct":-14,"signal":"risk"}],"kpis":{"overUsage":1,"upsellSignals":2,"riskSignals":1}},"lovesac":{"clientId":"lovesac","clientName":"Lovesac","products":[{"productId":"activation","name":"Activation","unit":"records/mo","series":[{"month":"2026-02","value":4700000},{"month":"2026-03","value":4900000},{"month":"2026-04","value":5000000},{"month":"2026-05","value":5200000},{"month":"2026-06","value":4900000},{"month":"2026-07","value":6300000}],"momPct":29,"vsCommitPct":26,"signal":"Upsell"},{"productId":"conversions-api-for-meta","name":"Conversions API for Meta","unit":"conversions/mo","series":[{"month":"2026-02","value":1},{"month":"2026-03","value":1},{"month":"2026-04","value":1},{"month":"2026-05","value":1},{"month":"2026-06","value":1},{"month":"2026-07","value":1}],"momPct":0,"vsCommitPct":0,"signal":"stable"},{"productId":"enhanced-matching-for-google-customer-match","name":"Enhanced Matching for Google Customer Match","unit":"matches/mo","series":[{"month":"2026-02","value":1800000},{"month":"2026-03","value":1800000},{"month":"2026-04","value":1900000},{"month":"2026-05","value":2000000},{"month":"2026-06","value":2200000},{"month":"2026-07","value":2300000}],"momPct":5,"vsCommitPct":-23,"signal":"Healthy"},{"productId":"conversion-api-for-pinterest","name":"Conversion API For Pinterest","unit":"conversions/mo","series":[{"month":"2026-02","value":1},{"month":"2026-03","value":1},{"month":"2026-04","value":1},{"month":"2026-05","value":1},{"month":"2026-06","value":1},{"month":"2026-07","value":1}],"momPct":0,"vsCommitPct":0,"signal":"stable"},{"productId":"measurement","name":"Measurement","unit":"events/mo","series":[{"month":"2026-02","value":2680000},{"month":"2026-03","value":2700000},{"month":"2026-04","value":2650000},{"month":"2026-05","value":2720000},{"month":"2026-06","value":2705000},{"month":"2026-07","value":2760000}],"momPct":2,"vsCommitPct":-8,"signal":"stable"}],"kpis":{"overUsage":1,"upsellSignals":1,"riskSignals":0}}},"valueReports":{"chubb":{"clientId":"chubb","clientName":"Chubb","tenure":"Jul 31, 2017","roiMultiplier":0.9,"productsUsed":2,"productsOwned":2,"stakeholders":4,"usedItems":[{"name":"B2B Activation","usage":"2,700 records/mo"},{"name":"Enhanced Matching for Google Customer Match (B2B)","usage":"4,410 matches/mo"}]},"constellation-brands":{"clientId":"constellation-brands","clientName":"Constellation Brands","tenure":"Apr 19, 2017","roiMultiplier":1.5,"productsUsed":5,"productsOwned":5,"stakeholders":5,"usedItems":[{"name":"Enhanced Client-Side Tag","usage":"65,960 records/mo"},{"name":"Activation","usage":"62,640 records/mo"},{"name":"Authenticated Traffic Solution","usage":"55,040 records/mo"},{"name":"Measurement Enablement","usage":"44,890 queries/mo"},{"name":"3P Attribute Data Append","usage":"23,500 segments/mo"}]},"taxquotes":{"clientId":"taxquotes","clientName":"TaxQuotes","tenure":"May 13, 2024","roiMultiplier":1.4,"productsUsed":3,"productsOwned":3,"stakeholders":5,"usedItems":[{"name":"Enhanced Client-Side Tag","usage":"31,860 records/mo"},{"name":"Activation","usage":"9,690 records/mo"},{"name":"Enhanced Matching for Google Customer Match","usage":"26,500 matches/mo"}]},"franklin-templeton-comp":{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","tenure":"Nov 7, 2019","roiMultiplier":1.5,"productsUsed":2,"productsOwned":2,"stakeholders":5,"usedItems":[{"name":"B2B Activation","usage":"27,000 records/mo"},{"name":"Enhanced Matching for Google Customer Match (B2B)","usage":"60,500 matches/mo"}]},"lampsplus":{"clientId":"lampsplus","clientName":"LampsPlus","tenure":"Jan 1, 2018","roiMultiplier":1.7,"productsUsed":5,"productsOwned":5,"stakeholders":6,"usedItems":[{"name":"LiveRamp Platform and Usage","usage":"15,840 records/mo"},{"name":"Baseline Support","usage":"7,920 records/mo"},{"name":"Conversions API for Bing","usage":"21,060 conversions/mo"},{"name":"Conversions API for Criteo","usage":"7,200 conversions/mo"},{"name":"Conversions API for Google Store Sales","usage":"12,960 conversions/mo"}]},"rent-a-center":{"clientId":"rent-a-center","clientName":"Rent-A-Center","tenure":"Oct 1, 2017","roiMultiplier":1.8,"productsUsed":3,"productsOwned":3,"stakeholders":6,"usedItems":[{"name":"Activation","usage":"61,200 records/mo"},{"name":"Conversions API for Google Campaign Manager","usage":"55,610 conversions/mo"},{"name":"Technical: Ongoing Services","usage":"63,180 records/mo"}]},"georgia-pacific-llc":{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","tenure":"Feb 9, 2018","roiMultiplier":1.9,"productsUsed":2,"productsOwned":2,"stakeholders":6,"usedItems":[{"name":"Activation","usage":"86,430 records/mo"},{"name":"3P Data Segments","usage":"43,550 segments/mo"}]},"metlife":{"clientId":"metlife","clientName":"Metlife","tenure":"Mar 28, 2023","roiMultiplier":1.8,"productsUsed":4,"productsOwned":4,"stakeholders":7,"usedItems":[{"name":"Enhanced Client-Side Tag","usage":"19,430 records/mo"},{"name":"Authenticated Traffic Solution","usage":"24,800 records/mo"},{"name":"B2B Activation","usage":"39,270 records/mo"},{"name":"3P Data Segments","usage":"32,250 segments/mo"}]},"raymourandflanigan":{"clientId":"raymourandflanigan","clientName":"Raymour&Flanigan","tenure":"Mar 14, 2016","roiMultiplier":2.1,"productsUsed":3,"productsOwned":3,"stakeholders":7,"usedItems":[{"name":"Conversions API for Google Campaign Manager","usage":"36,550 conversions/mo"},{"name":"Conversions API for Meta","usage":"41,800 conversions/mo"},{"name":"Partner Attribution","usage":"15,960 queries/mo"}]},"pacsun":{"clientId":"pacsun","clientName":"PacSun","tenure":"Jul 14, 2017","roiMultiplier":2,"productsUsed":4,"productsOwned":4,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"29,240 records/mo"},{"name":"Premier Services","usage":"33,440 records/mo"},{"name":"Conversion API for TikTok","usage":"34,560 conversions/mo"},{"name":"Conversion API for Google Store Sales","usage":"22,880 conversions/mo"}]},"lean-media-inc":{"clientId":"lean-media-inc","clientName":"Lean Media, Inc.","tenure":"Mar 27, 2017","roiMultiplier":2,"productsUsed":2,"productsOwned":2,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"23,490 records/mo"},{"name":"Reseller Activation","usage":"18,240 records/mo"}]},"cornerstone-brands-inc":{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","tenure":"Aug 31, 2022","roiMultiplier":2.1,"productsUsed":1,"productsOwned":1,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"35,280 records/mo"}]},"the-travelers-companies":{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","tenure":"Jan 12, 2023","roiMultiplier":2.1,"productsUsed":3,"productsOwned":3,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"66,740 records/mo"},{"name":"Enhanced Matching for Google Customer Match","usage":"82,170 matches/mo"},{"name":"Premier Services","usage":"94,080 records/mo"}]},"circle-k":{"clientId":"circle-k","clientName":"Circle K","tenure":"Apr 1, 2022","roiMultiplier":2.2,"productsUsed":5,"productsOwned":5,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"59,670 records/mo"},{"name":"Enhanced Matching for Google Customer Match","usage":"105,840 matches/mo"},{"name":"Premier Services","usage":"42,780 records/mo"},{"name":"Conversions API for Meta","usage":"80,960 conversions/mo"},{"name":"Monetization Distribution","usage":"46,440 impressions/mo"}]},"lovesac":{"clientId":"lovesac","clientName":"Lovesac","tenure":"Nov 15, 2017","roiMultiplier":2.2,"productsUsed":5,"productsOwned":5,"stakeholders":7,"usedItems":[{"name":"Activation","usage":"6,300,000 records/mo"},{"name":"Conversions API for Meta","usage":"1 conversions/mo"},{"name":"Enhanced Matching for Google Customer Match","usage":"2,300,000 matches/mo"},{"name":"Conversion API For Pinterest","usage":"1 conversions/mo"},{"name":"Measurement","usage":"2,760,000 events/mo"}]}},"migrationAccounts":{"chubb":{"clientId":"chubb","clientName":"Chubb","sub":"RUM · SFDC #001f200001f8OWGAA2","acv":"$100K","renewal":"250 days","renewalUrgency":"green","healthScore":42,"healthStatus":"critical","usageTrendPct":-29,"currentMarginPct":26,"migrationRequired":true,"narrative":"Chubb is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 26%. Renewal is 250 days out.","stage":"conversation_held","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"constellation-brands":{"clientId":"constellation-brands","clientName":"Constellation Brands","sub":"RUM · SFDC #001f200001f8OTNAA2","acv":"$179K","renewal":"189 days","renewalUrgency":"green","healthScore":56,"healthStatus":"at_risk","usageTrendPct":-5,"currentMarginPct":35,"migrationRequired":true,"narrative":"Constellation Brands is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 35%. Renewal is 189 days out.","stage":"proposal_submitted","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"taxquotes":{"clientId":"taxquotes","clientName":"TaxQuotes","sub":"RUM · SFDC #001PP00000CKuDeYAL","acv":"$110K","renewal":"262 days","renewalUrgency":"green","healthScore":56,"healthStatus":"at_risk","usageTrendPct":2,"currentMarginPct":40,"migrationRequired":true,"narrative":"TaxQuotes is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 40%. Renewal is 262 days out.","stage":"signed","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"franklin-templeton-comp":{"clientId":"franklin-templeton-comp","clientName":"Franklin Templeton Comp","sub":"RUM · SFDC #001f200001f947LAAQ","acv":"$258K","renewal":"75 days","renewalUrgency":"amber","healthScore":58,"healthStatus":"at_risk","usageTrendPct":-9,"currentMarginPct":31,"migrationRequired":true,"narrative":"Franklin Templeton Comp is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 31%. Renewal is 75 days out.","stage":"signed","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"lampsplus":{"clientId":"lampsplus","clientName":"LampsPlus","sub":"Tokens · SFDC #001f200001f8OWRAA2","acv":"$61K","renewal":"99 days","renewalUrgency":"green","healthScore":69,"healthStatus":"watch","usageTrendPct":0,"currentMarginPct":46,"migrationRequired":true,"narrative":"LampsPlus is flagged for token-pricing migration: usage trending down 3+ months. Renewal is 99 days out.","stage":"deferred","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"rent-a-center":{"clientId":"rent-a-center","clientName":"Rent-A-Center","sub":"RUM · SFDC #001f200001f8OWiAAM","acv":"$236K","renewal":"38 days","renewalUrgency":"red","healthScore":71,"healthStatus":"watch","usageTrendPct":-2,"currentMarginPct":47,"migrationRequired":true,"narrative":"Rent-A-Center is flagged for token-pricing migration: usage trending down 3+ months. Renewal is 38 days out.","stage":"conversation_held","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"georgia-pacific-llc":{"clientId":"georgia-pacific-llc","clientName":"Georgia-Pacific LLC","sub":"RUM · SFDC #001f200001f8OR0AAM","acv":"$297K","renewal":"38 days","renewalUrgency":"red","healthScore":74,"healthStatus":"watch","usageTrendPct":-3,"currentMarginPct":45,"migrationRequired":true,"narrative":"Georgia-Pacific LLC is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 45%. Renewal is 38 days out.","stage":"conversation_held","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"metlife":{"clientId":"metlife","clientName":"Metlife","sub":"RUM · SFDC #0018W00002GBxzSQAT","acv":"$114K","renewal":"495 days","renewalUrgency":"green","healthScore":75,"healthStatus":"watch","usageTrendPct":-4,"currentMarginPct":42,"migrationRequired":true,"narrative":"Metlife is flagged for token-pricing migration: usage trending down 3+ months and margin compressed to 42%. Renewal is 495 days out.","stage":"deferred","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"raymourandflanigan":{"clientId":"raymourandflanigan","clientName":"Raymour&Flanigan","sub":"Each · SFDC #001f200001f8ON7AAM","acv":"$106K","renewal":"220 days","renewalUrgency":"green","healthScore":82,"healthStatus":"healthy","usageTrendPct":-2,"currentMarginPct":57,"migrationRequired":false,"narrative":"Raymour&Flanigan does not currently meet the migration criteria (over-usage, declining usage, or margin compression).","stage":"deferred","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"pacsun":{"clientId":"pacsun","clientName":"PacSun","sub":"RUM · SFDC #001f200001f8OW0AAM","acv":"$137K","renewal":"526 days","renewalUrgency":"green","healthScore":82,"healthStatus":"healthy","usageTrendPct":-1,"currentMarginPct":48,"migrationRequired":false,"narrative":"PacSun does not currently meet the migration criteria (over-usage, declining usage, or margin compression).","stage":"not_started","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"lean-media-inc":{"clientId":"lean-media-inc","clientName":"Lean Media, Inc.","sub":"RUM · SFDC #001f200001f8OVcAAM","acv":"$108K","renewal":"215 days","renewalUrgency":"green","healthScore":83,"healthStatus":"healthy","usageTrendPct":1,"currentMarginPct":51,"migrationRequired":false,"narrative":"Lean Media, Inc. does not currently meet the migration criteria (over-usage, declining usage, or margin compression).","stage":"proposal_submitted","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"cornerstone-brands-inc":{"clientId":"cornerstone-brands-inc","clientName":"Cornerstone Brands, Inc.","sub":"RUM · SFDC #001f200001f91U8AA","acv":"$154K","renewal":"372 days","renewalUrgency":"green","healthScore":84,"healthStatus":"healthy","usageTrendPct":7,"currentMarginPct":59,"migrationRequired":true,"narrative":"Cornerstone Brands, Inc. is flagged for token-pricing migration: usage trending down 3+ months. Renewal is 372 days out.","stage":"signed","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"the-travelers-companies":{"clientId":"the-travelers-companies","clientName":"The Travelers Companies","sub":"RUM · SFDC #001f200001f95ivAAA","acv":"$350K","renewal":"506 days","renewalUrgency":"green","healthScore":86,"healthStatus":"healthy","usageTrendPct":0,"currentMarginPct":48,"migrationRequired":true,"narrative":"The Travelers Companies is flagged for token-pricing migration: usage trending down 3+ months. Renewal is 506 days out.","stage":"conversation_held","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":1,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"circle-k":{"clientId":"circle-k","clientName":"Circle K","sub":"RUM, Impressions · SFDC #001f200001f94ypAAA","acv":"$257K","renewal":"220 days","renewalUrgency":"green","healthScore":86,"healthStatus":"healthy","usageTrendPct":-2,"currentMarginPct":54,"migrationRequired":true,"narrative":"Circle K is flagged for token-pricing migration: bursting past its committed volume and usage trending down 3+ months. Renewal is 220 days out.","stage":"deferred","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":2,"estimatedAcvImpact":51000,"estimatedAcvImpactLabel":"$51K"},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"},"lovesac":{"clientId":"lovesac","clientName":"Lovesac","sub":"RUM · SFDC #001f200001f8OTzAAM","acv":"$305K","renewal":"250 days","renewalUrgency":"green","healthScore":87,"healthStatus":"healthy","usageTrendPct":7,"currentMarginPct":57,"migrationRequired":true,"narrative":"Lovesac is flagged for token-pricing migration: bursting past its committed volume. Renewal is 250 days out.","stage":"proposal_submitted","tokenPlan":{"ratePerToken":52.85,"ratePerTokenLabel":"$52.85/token","bundles":3,"estimatedAcvImpact":null,"estimatedAcvImpactLabel":null},"whatToShowClient":["Current usage vs. committed volume","New bundle count and per-token rate","Renewal term and resulting monthly / term commitment","Any billing credits from the transition period"],"escalationPath":"CSM"}}};
+
+/* ============================================================
+   NAV + ROUTER
+   ============================================================ */
+const TABS = [
+  { href: '', label: 'Client Radar', icon: '▦' },
+  { href: 'upsell', label: 'Upsell Engine', icon: '↗' },
+  { href: 'margin', label: 'Margin', icon: '%' },
+  { href: 'alerts', label: 'Alerts', icon: '🔔' },
+  { href: 'value', label: 'Value Report', icon: '📄' },
+  { href: 'migration', label: 'Migration Insight', icon: '⇄' },
+];
+
+function navigate(path) { location.hash = '#/' + path; }
+
+function currentRoute() {
+  return location.hash.replace(/^#\/?/, '');
+}
+
+function titleForRoute(hash) {
+  const exact = TABS.find((t) => t.href === hash);
+  if (exact) return exact.label;
+  if (hash.startsWith('clients/')) return 'Client Radar';
+  return 'Recon 360';
+}
+
+function renderNav() {
+  const hash = currentRoute();
+  const el = document.getElementById('sidebar-nav');
+  el.innerHTML = TABS.map((t) => {
+    const active = hash === t.href || (t.href !== '' && hash.startsWith(t.href));
+    return `<a class="${active ? 'active' : ''}" onclick="navigate('${t.href}')"><span class="nicon">${t.icon}</span>${t.label}</a>`;
+  }).join('');
+}
+
+function handleTopbarSearch(e) {
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return;
+  const match = DATA.portfolio.clients.find((c) => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
+  if (match) { navigate('clients/' + match.id); e.target.value = ''; }
+  else showToast('No client matched "' + e.target.value + '"');
+}
+
+function render() {
+  const hash = currentRoute();
+  renderNav();
+  document.getElementById('topbar-title').textContent = titleForRoute(hash);
+  const main = document.getElementById('main-content');
+  if (hash === '') main.innerHTML = renderPortfolioPage();
+  else if (hash === 'upsell') main.innerHTML = renderUpsellPage();
+  else if (hash === 'margin') main.innerHTML = renderMarginPage();
+  else if (hash === 'alerts') main.innerHTML = renderAlertsPage();
+  else if (hash === 'value') main.innerHTML = renderValuePage();
+  else if (hash === 'migration') main.innerHTML = renderMigrationPage();
+  else if (hash.startsWith('clients/')) main.innerHTML = renderClientDetailPage(hash.split('/')[1]);
+  else main.innerHTML = renderPortfolioPage();
+  window.scrollTo(0, 0);
+  afterRenderHook();
+}
+
+let afterRenderHook = function(){};
+
+window.addEventListener('hashchange', render);
+window.addEventListener('DOMContentLoaded', () => { initTheme(); render(); });
+
+/* ============================================================
+   THEME
+   ============================================================ */
+function initTheme() {
+  const dark = document.documentElement.classList.contains('dark');
+  document.getElementById('theme-toggle').classList.toggle('is-dark', dark);
+  document.getElementById('theme-knob').textContent = dark ? '☾' : '☀';
+}
+function toggleTheme() {
+  const dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  try { localStorage.setItem('recon360-theme', dark ? 'dark' : 'light'); } catch (e) {}
+  initTheme();
+}
+
+/* ============================================================
+   TOAST + MODAL
+   ============================================================ */
+function showToast(msg) {
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  root.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 2800);
+}
+
+function openModal(innerHtml) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="overlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      ${innerHtml}
+    </div>
+  </div>`;
+}
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+
+/* ============================================================
+   PRESENTATION HELPERS — mirrors apps/web/src/lib/presentation.ts
+   ============================================================ */
+function scoreToColor(score) { return score >= 75 ? 'green' : score >= 60 ? 'amber' : 'red'; }
+
+function healthBadge(status) {
+  const map = { healthy: ['Healthy', 'green'], watch: ['Watch', 'amber'], at_risk: ['At Risk', 'amber'], critical: ['Critical', 'red'] };
+  const [label, color] = map[status] || ['—', 'amber'];
+  return { label, cls: 'badge-' + color };
+}
+function urgencyClass(color) { return color === 'green' ? 'text-green' : color === 'amber' ? 'text-amber' : 'text-red'; }
+function driverBarClass(color) { return color === 'green' ? 'bg-green' : color === 'amber' ? 'bg-amber' : 'bg-red'; }
+function renewalRiskBadge(color) {
+  if (color === 'red') return { label: 'High', cls: 'badge-red' };
+  if (color === 'amber') return { label: 'Medium', cls: 'badge-amber' };
+  return { label: 'Low', cls: 'badge-green' };
+}
+const PRODUCT_STATUS_META = {
+  healthy: { label: 'Healthy', cls: 'badge-green' },
+  under: { label: 'Underutilized', cls: 'badge-amber' },
+  gap: { label: 'Adoption gap', cls: 'badge-red' },
+  billnouse: { label: 'Billed, not used', cls: 'badge-purple' },
+  usenobill: { label: 'Used, not billed', cls: 'badge-purple' },
+  over: { label: '⚡ Over allotment', cls: 'badge-red' },
+};
+function productStatusBadge(status) { return PRODUCT_STATUS_META[status] || { label: status, cls: 'badge-amber' }; }
+
+function utilizationColorClass(util) {
+  if (util > 100) return 'text-red';
+  if (util >= 70) return 'text-green';
+  if (util >= 40) return 'text-amber';
+  if (util >= 15) return 'text-red';
+  return 'text-purple';
+}
+function utilBarClass(util) {
+  if (util > 100) return 'bg-red';
+  if (util >= 70) return 'bg-green';
+  if (util >= 40) return 'bg-amber';
+  if (util >= 15) return 'bg-red';
+  return 'bg-purple';
+}
+
+const TREND_SIGNAL_META = {
+  over_usage: { label: '⚡ Over-usage', cls: 'badge-red' },
+  upsell: { label: 'Upsell', cls: 'badge-green' },
+  growing: { label: 'Growing', cls: 'badge-green' },
+  risk: { label: 'Risk', cls: 'badge-red' },
+  stable: { label: 'Stable', cls: 'badge-amber' },
+  healthy: { label: '✓ Healthy', cls: 'badge-green' },
+};
+function trendSignalBadge(signal) {
+  const key = String(signal ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  return TREND_SIGNAL_META[key] || { label: signal, cls: 'badge-amber' };
+}
+const TREND_SIGNAL_COLOR_VAR = {
+  over_usage: 'var(--brand-red)', upsell: 'var(--brand-green)', growing: 'var(--brand-green)',
+  risk: 'var(--brand-red)', stable: 'var(--brand-amber)', healthy: 'var(--brand-green)',
+};
+function trendSignalColorVar(signal) {
+  const key = String(signal ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  return TREND_SIGNAL_COLOR_VAR[key] || 'var(--brand-blue)';
+}
+
+const UPSELL_SIGNAL_META = {
+  over_usage: { label: '⚡ Over-usage', cls: 'badge-red' },
+  whitespace: { label: 'Whitespace', cls: 'badge-purple' },
+};
+function upsellSignalBadge(signal) { return UPSELL_SIGNAL_META[signal] || { label: signal, cls: 'badge-amber' }; }
+
+const ALERT_SEVERITY_META = {
+  High: { label: 'High', cls: 'badge-red' },
+  Opportunity: { label: 'Opportunity', cls: 'badge-green' },
+  Medium: { label: 'Medium', cls: 'badge-amber' },
+};
+function alertSeverityBadge(sev) { return ALERT_SEVERITY_META[sev] || { label: sev, cls: 'badge-amber' }; }
+
+const MARGIN_FLAG_META = {
+  ok: { label: '✓ Healthy margin', cls: 'badge-green' },
+  watch: { label: 'Watch', cls: 'badge-amber' },
+  low: { label: '🔴 Low margin', cls: 'badge-red' },
+  hidden: { label: '⚠ Healthy but low margin', cls: 'badge-purple' },
+};
+function marginFlagBadge(flag) { return MARGIN_FLAG_META[flag] || { label: flag, cls: 'badge-amber' }; }
+function marginPctClass(pct) { return pct >= 50 ? 'badge-green' : pct >= 40 ? 'badge-amber' : 'badge-red'; }
+function marginPctColorVar(pct) { return pct >= 50 ? 'var(--brand-green)' : pct >= 40 ? 'var(--brand-amber)' : 'var(--brand-red)'; }
+
+const MIGRATION_SEVERITY_META = { High: { label: 'High', cls: 'badge-red' }, Medium: { label: 'Medium', cls: 'badge-amber' } };
+function migrationSeverityBadge(sev) { return MIGRATION_SEVERITY_META[sev] || { label: sev, cls: 'badge-amber' }; }
+const MIGRATION_STAGE_META = {
+  not_started: { label: 'Not Started', cls: 'badge-purple' },
+  conversation_held: { label: 'Customer Conversation Held', cls: 'badge-blue' },
+  proposal_submitted: { label: 'Proposal Submitted', cls: 'badge-amber' },
+  deferred: { label: 'Deferred', cls: 'badge-red' },
+  signed: { label: 'Signed / Closed Won', cls: 'badge-green' },
+};
+function migrationStageBadge(stage) { return MIGRATION_STAGE_META[stage] || { label: stage, cls: 'badge-amber' }; }
+
+function insightTagClass(tag) { return tag === 'risk' ? 'text-red' : tag === 'grow' ? 'text-green' : 'text-purple'; }
+
+/* Deterministic categorical color per product — mirrors lib/product-colors.ts */
+const PRODUCT_PALETTE = ['var(--brand-green)', 'var(--brand-blue)', 'var(--brand-amber)', 'var(--brand-purple)', 'var(--brand-red)'];
+function stringHash(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
+function productColor(id) { return PRODUCT_PALETTE[stringHash(id) % PRODUCT_PALETTE.length]; }
+
+function fmtCompactMoney(v) {
+  if (!v) return '$0';
+  if (v >= 1000000) return '$' + (v / 1000000).toFixed(1) + 'M';
+  if (v >= 1000) return '$' + (v / 1000).toFixed(1) + 'K';
+  return '$' + Math.round(v);
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+/* ============================================================
+   SHARED SMALL COMPONENTS
+   ============================================================ */
+function scoreChipHtml(score) {
+  const color = scoreToColor(score);
+  return `<span class="score-chip badge-${color}">${score}</span>`;
+}
+function kpiTileHtml({ label, value, sub, valueClass, iconGlyph, iconColorVar, visualHtml, footerHtml }) {
+  return `<div class="kpi-tile">
+    <div class="kpi-top">
+      <div class="kpi-left">
+        ${iconGlyph ? `<span class="kpi-icon" style="background:color-mix(in srgb, ${iconColorVar} 14%, transparent); color:${iconColorVar}">${iconGlyph}</span>` : ''}
+        <div>
+          <div class="kpi-label">${esc(label)}</div>
+          <div class="kpi-value ${valueClass || ''}">${esc(value)}</div>
+        </div>
+      </div>
+      ${visualHtml || ''}
+    </div>
+    ${sub ? `<div class="kpi-sub">${esc(sub)}</div>` : ''}
+    ${footerHtml ? `<div class="kpi-footer">${footerHtml}</div>` : ''}
+  </div>`;
+}
+function miniStackedBarHtml(segments) {
+  const total = segments.reduce((t, s) => t + s.value, 0) || 1;
+  const title = segments.map((s) => `${s.label}: ${Math.round((s.value / total) * 100)}%`).join(' · ');
+  return `<div class="mini-stacked-bar" title="${esc(title)}">${segments.map((s) => `<span style="width:${(s.value / total) * 100}%;background:${s.color}"></span>`).join('')}</div>`;
+}
+function miniStatusBarsHtml(segments) {
+  const max = Math.max.apply(null, segments.map((s) => s.value).concat([1]));
+  const title = segments.map((s) => `${s.label}: ${s.value}`).join(' · ');
+  return `<div class="mini-status-bars" title="${esc(title)}">${segments.map((s) => `<span style="height:${Math.max((s.value / max) * 100, 10)}%;background:${s.color}"></span>`).join('')}</div>`;
+}
+function miniMeterSvg(pct, color, size) {
+  size = size || 40;
+  const r = size * 0.42, cx = size / 2, cy = size / 2, circ = 2 * Math.PI * r;
+  const dash = circ * Math.min(pct, 100) / 100;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--muted)" stroke-width="${size * 0.16}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${size * 0.16}" stroke-linecap="round" stroke-dasharray="${dash} ${circ - dash}" transform="rotate(-90 ${cx} ${cy})"/>
+  </svg>`;
+}
+
+/* ============================================================
+   CHART BUILDERS (plain inline SVG — no chart libraries)
+   ============================================================ */
+function healthGaugeSvg(score) {
+  const color = 'var(--brand-' + scoreToColor(score) + ')';
+  const r = 65, cx = 75, cy = 75, circ = 2 * Math.PI * r;
+  const dash = circ * Math.min(Math.max(score, 0), 100) / 100;
+  return `<div class="gauge">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--muted)" stroke-width="13"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="13" stroke-linecap="round"
+        stroke-dasharray="${dash} ${circ - dash}" transform="rotate(-90 ${cx} ${cy})"/>
+    </svg>
+    <div class="gauge-center"><span class="gauge-num">${score}</span><span class="gauge-of">/ 100</span></div>
+  </div>`;
+}
+
+const DRIVER_SHORT_NAME = { Utilization: 'Util.', 'Value Delivered': 'Value Delivered', 'Timely Payments': 'Timely Payments', Products: 'Products', Relationship: 'Rel.' };
+
+function driverRadarSvg(drivers) {
+  const n = drivers.length, cx = 130, cy = 100, maxR = 68;
+  function pt(i, r) { const a = -Math.PI / 2 + i * (2 * Math.PI / n); return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  const rings = [0.34, 0.67, 1].map((f) => `<polygon points="${drivers.map((_, i) => pt(i, maxR * f).join(',')).join(' ')}" fill="none" stroke="var(--border)"/>`).join('');
+  const axes = drivers.map((d, i) => { const [x, y] = pt(i, maxR); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--border)"/>`; }).join('');
+  const dataPts = drivers.map((d, i) => pt(i, maxR * (Math.max(d.value, 0) / 100)).join(',')).join(' ');
+  const dots = drivers.map((d, i) => { const [x, y] = pt(i, maxR * (Math.max(d.value, 0) / 100)); return `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--brand-blue)"><title>${esc(d.name)}: ${d.value}</title></circle>`; }).join('');
+  const labels = drivers.map((d, i) => {
+    const [x, y] = pt(i, maxR + 22);
+    return `<text x="${x}" y="${y}" font-size="10.5" fill="var(--muted-foreground)" text-anchor="middle" dominant-baseline="middle">${esc(DRIVER_SHORT_NAME[d.name] || d.name)}</text>`;
+  }).join('');
+  return `<div class="chart-box"><svg viewBox="0 0 260 200" width="100%" height="190">
+    ${rings}${axes}
+    <polygon points="${dataPts}" fill="var(--brand-blue)" fill-opacity="0.15" stroke="var(--brand-blue)" stroke-width="2"/>
+    ${dots}${labels}
+  </svg></div>`;
+}
+
+function miniTrendSvg(series, color) {
+  const vals = series.map((s) => s.value);
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const w = 96, h = 28, pad = 3;
+  const pts = series.map((s, i) => {
+    const x = pad + (i / (series.length - 1 || 1)) * (w - pad * 2);
+    const y = max === min ? h / 2 : h - pad - ((s.value - min) / (max - min)) * (h - pad * 2);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function pivotProductTrend(products) {
+  if (!products.length) return [];
+  return products[0].series.map((point, i) => {
+    const row = { month: point.month };
+    products.forEach((p) => {
+      const base = p.series[0].value;
+      row[p.productId] = base ? Math.round((p.series[i].value / base) * 100) : 0;
+    });
+    return row;
+  });
+}
+
+function productTrendChartSvg(products, active) {
+  if (!products.length) return '<p class="text-muted" style="font-size:12.5px">No trend data.</p>';
+  const data = pivotProductTrend(products);
+  const w = 720, h = 250, padL = 40, padR = 12, padT = 10, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const n = data.length;
+  const allVals = data.flatMap((row) => products.map((p) => row[p.productId]));
+  const yMax = Math.max(100, ...allVals) * 1.1;
+  const yMin = Math.min(0, Math.min(100, ...allVals));
+  function x(i) { return padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW); }
+  function y(v) { return padT + plotH - ((v - yMin) / (yMax - yMin || 1)) * plotH; }
+
+  const gridY = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+    const yv = yMin + f * (yMax - yMin);
+    return `<line x1="${padL}" y1="${y(yv).toFixed(1)}" x2="${w - padR}" y2="${y(yv).toFixed(1)}" stroke="var(--border)"/>
+      <text x="${padL - 6}" y="${y(yv).toFixed(1)}" font-size="11" fill="var(--muted-foreground)" text-anchor="end" dominant-baseline="middle">${Math.round(yv)}%</text>`;
+  }).join('');
+  const xLabels = data.map((row, i) => `<text x="${x(i).toFixed(1)}" y="${h - 6}" font-size="12" fill="var(--muted-foreground)" text-anchor="middle">${esc(row.month)}</text>`).join('');
+  const refLine = `<line x1="${padL}" y1="${y(100).toFixed(1)}" x2="${w - padR}" y2="${y(100).toFixed(1)}" stroke="var(--muted-foreground)" stroke-dasharray="3 3"/>`;
+
+  const ordered = active ? products.filter((p) => p.productId !== active).concat(products.filter((p) => p.productId === active)) : products;
+  const defs = products.map((p) => `<linearGradient id="grad-${p.productId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${productColor(p.productId)}" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="${productColor(p.productId)}" stop-opacity="0"/>
+    </linearGradient>`).join('');
+
+  const areas = ordered.map((p) => {
+    const dim = active !== null && active !== undefined && active !== p.productId;
+    const color = dim ? 'var(--muted-foreground)' : productColor(p.productId);
+    const pathPts = data.map((row, i) => x(i).toFixed(1) + ',' + y(row[p.productId]).toFixed(1));
+    const line = 'M' + pathPts.join(' L');
+    const area = line + ` L${x(n - 1).toFixed(1)},${y(yMin).toFixed(1)} L${x(0).toFixed(1)},${y(yMin).toFixed(1)} Z`;
+    const dots = data.map((row, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(row[p.productId]).toFixed(1)}" r="${dim ? 0 : 3.5}" fill="${color}"><title>${esc(p.name)} · ${esc(row.month)}: ${row[p.productId]}% of first month</title></circle>`).join('');
+    return `<path d="${area}" fill="${dim ? 'var(--muted-foreground)' : 'url(#grad-' + p.productId + ')'}" fill-opacity="${dim ? 0.06 : 1}"/>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="${dim ? 1.5 : 2.5}" stroke-opacity="${dim ? 0.4 : 1}"/>
+      ${dots}`;
+  }).join('');
+
+  const legend = products.map((p) => {
+    const dim = active !== null && active !== undefined && active !== p.productId;
+    return `<span class="legend-item ${dim ? 'dim' : ''}" onclick="onProductLegendClick('${p.productId}')"><span class="legend-dot" style="background:${productColor(p.productId)}"></span>${esc(p.name)}</span>`;
+  }).join('');
+
+  return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="250">
+    <defs>${defs}</defs>
+    ${gridY}${refLine}${areas}${xLabels}
+  </svg></div>
+  <div class="legend-row" style="margin-top:8px">${legend}</div>`;
+}
+
+function marginBubbleChartSvg(rows) {
+  const w = 720, h = 340, padL = 46, padR = 16, padT = 14, padB = 40;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const xDom = [30, 100], yDom = [0, 70];
+  function x(v) { return padL + ((v - xDom[0]) / (xDom[1] - xDom[0])) * plotW; }
+  function y(v) { return padT + plotH - ((v - yDom[0]) / (yDom[1] - yDom[0])) * plotH; }
+  const maxAcv = Math.max.apply(null, rows.map((r) => r.acv).concat([1]));
+  function radius(acv) { return 6 + Math.sqrt(acv / maxAcv) * 22; }
+  const FLAG_COLOR = { ok: 'var(--brand-green)', watch: 'var(--brand-amber)', low: 'var(--brand-red)', hidden: 'var(--brand-purple)' };
+
+  const gridX = [30, 45, 60, 75, 90, 100].map((v) => `<line x1="${x(v).toFixed(1)}" y1="${padT}" x2="${x(v).toFixed(1)}" y2="${h - padB}" stroke="var(--border)"/>
+    <text x="${x(v).toFixed(1)}" y="${h - padB + 16}" font-size="11" fill="var(--muted-foreground)" text-anchor="middle">${v}</text>`).join('');
+  const gridY = [0, 10, 20, 30, 40, 50, 60, 70].map((v) => `<line x1="${padL}" y1="${y(v).toFixed(1)}" x2="${w - padR}" y2="${y(v).toFixed(1)}" stroke="var(--border)"/>
+    <text x="${padL - 8}" y="${y(v).toFixed(1)}" font-size="11" fill="var(--muted-foreground)" text-anchor="end" dominant-baseline="middle">${v}%</text>`).join('');
+  const refLine = `<line x1="${padL}" y1="${y(50).toFixed(1)}" x2="${w - padR}" y2="${y(50).toFixed(1)}" stroke="var(--muted-foreground)" stroke-dasharray="4 4"/>`;
+
+  const bubbles = rows.map((r) => {
+    const badge = marginFlagBadge(r.flag);
+    return `<circle cx="${x(r.healthScore).toFixed(1)}" cy="${y(r.marginPct).toFixed(1)}" r="${radius(r.acv).toFixed(1)}" fill="${FLAG_COLOR[r.flag]}" fill-opacity="0.72" stroke="${FLAG_COLOR[r.flag]}" stroke-width="1">
+      <title>${esc(r.clientName)} — ACV ${esc(r.acvLabel)} · Margin ${r.marginPct.toFixed(0)}% · Health ${r.healthScore} · ${esc(badge.label)}</title>
+    </circle>`;
+  }).join('');
+
+  const flagsPresent = Array.from(new Set(rows.map((r) => r.flag)));
+  const legend = flagsPresent.map((f) => `<span class="legend-item"><span class="legend-dot" style="background:${FLAG_COLOR[f]}"></span>${esc(marginFlagBadge(f).label)}</span>`).join('');
+
+  return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="340">
+    ${gridX}${gridY}${refLine}${bubbles}
+    <text x="${w - padR}" y="${h - 6}" font-size="11" fill="var(--muted-foreground)" text-anchor="end">Health score →</text>
+    <text x="${padL}" y="${padT - 2}" font-size="11" fill="var(--muted-foreground)" text-anchor="start">Margin % ↑</text>
+  </svg></div>
+  <div class="legend-row" style="margin-top:8px">${legend}</div>`;
+}
+
+function upsellBarChartSvg(plays) {
+  const byClient = new Map();
+  plays.forEach((p) => {
+    const row = byClient.get(p.clientId) || { clientId: p.clientId, clientName: p.clientName, over_usage: 0, whitespace: 0 };
+    row[p.signal] = (row[p.signal] || 0) + p.upliftAcv;
+    byClient.set(p.clientId, row);
+  });
+  const data = Array.from(byClient.values()).sort((a, b) => (b.over_usage + b.whitespace) - (a.over_usage + a.whitespace)).slice(0, 8);
+  if (!data.length) return '<p class="text-muted" style="font-size:12.5px">No upsell plays.</p>';
+
+  const w = 720, h = 300, padL = 50, padR = 12, padT = 10, padB = 70;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const maxV = Math.max.apply(null, data.flatMap((d) => [d.over_usage, d.whitespace]).concat([1])) * 1.15;
+  function y(v) { return padT + plotH - (v / maxV) * plotH; }
+  const groupW = plotW / data.length;
+  const barW = Math.min(30, groupW * 0.32);
+
+  const gridY = [0, 0.25, 0.5, 0.75, 1].map((f) => `<line x1="${padL}" y1="${(padT + plotH * (1 - f)).toFixed(1)}" x2="${w - padR}" y2="${(padT + plotH * (1 - f)).toFixed(1)}" stroke="var(--border)"/>
+    <text x="${padL - 8}" y="${(padT + plotH * (1 - f)).toFixed(1)}" font-size="11" fill="var(--muted-foreground)" text-anchor="end" dominant-baseline="middle">${fmtCompactMoney(maxV * f)}</text>`).join('');
+
+  const bars = data.map((d, i) => {
+    const cx = padL + groupW * (i + 0.5);
+    const x1 = cx - barW - 2, x2 = cx + 2;
+    const b1 = d.over_usage > 0 ? `<rect x="${x1.toFixed(1)}" y="${y(d.over_usage).toFixed(1)}" width="${barW.toFixed(1)}" height="${(plotH - (y(d.over_usage) - padT)).toFixed(1)}" rx="4" fill="var(--brand-red)"><title>${esc(d.clientName)} · Over-usage: ${fmtCompactMoney(d.over_usage)}</title></rect>` : '';
+    const b2 = d.whitespace > 0 ? `<rect x="${x2.toFixed(1)}" y="${y(d.whitespace).toFixed(1)}" width="${barW.toFixed(1)}" height="${(plotH - (y(d.whitespace) - padT)).toFixed(1)}" rx="4" fill="var(--brand-purple)"><title>${esc(d.clientName)} · Whitespace: ${fmtCompactMoney(d.whitespace)}</title></rect>` : '';
+    const label = `<text x="${cx.toFixed(1)}" y="${h - padB + 14}" font-size="12" fill="var(--muted-foreground)" text-anchor="end" transform="rotate(-28 ${cx.toFixed(1)} ${(h - padB + 14).toFixed(1)})">${esc(d.clientName)}</text>`;
+    return b1 + b2 + label;
+  }).join('');
+
+  return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="300">${gridY}${bars}</svg></div>`;
+}
+
+function usageTrendBarChartSvg(data) {
+  const w = 640, h = 230, padL = 6, padR = 6, padT = 10, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const max = Math.max.apply(null, data.map((d) => d.value).concat([1]));
+  const groupW = plotW / data.length;
+  const barW = Math.min(40, groupW * 0.6);
+  function barColor(v) {
+    const pct = (v / max) * 100;
+    if (pct >= 95) return 'var(--brand-blue)';
+    if (pct >= 80) return 'var(--brand-green)';
+    if (pct >= 65) return 'var(--brand-amber)';
+    return 'var(--brand-red)';
+  }
+  const bars = data.map((d, i) => {
+    const cx = padL + groupW * (i + 0.5);
+    const barH = (d.value / max) * plotH;
+    const yTop = padT + plotH - barH;
+    return `<rect x="${(cx - barW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="6" fill="${barColor(d.value)}"><title>${esc(d.month)}: ${d.value}</title></rect>
+      <text x="${cx.toFixed(1)}" y="${h - padB + 16}" font-size="11" fill="var(--muted-foreground)" text-anchor="middle">${esc(d.month.slice(5))}</text>`;
+  }).join('');
+  return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="230">${bars}</svg></div>`;
+}
+
+function alertsSeverityChartHtml(kpis) {
+  const rows = [
+    { key: 'high', label: 'High', value: kpis.high, color: 'var(--brand-red)', icon: '⚠' },
+    { key: 'opportunity', label: 'Opportunity', value: kpis.opportunity, color: 'var(--brand-green)', icon: '↗' },
+    { key: 'medium', label: 'Medium', value: kpis.medium, color: 'var(--brand-amber)', icon: '●' },
+  ];
+  const total = rows.reduce((s, r) => s + r.value, 0) || 1;
+  return `<div>
+    <div style="display:flex;height:16px;gap:2px;overflow:hidden;border-radius:8px;background:var(--muted)">
+      ${rows.map((r) => `<div style="width:${(r.value / total) * 100}%;background:${r.color}"></div>`).join('')}
+    </div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${rows.map((r) => `<div style="border-radius:10px;padding:12px;background:color-mix(in srgb, ${r.color} 10%, transparent)">
+          <div style="font-size:22px;font-weight:800;color:${r.color}">${r.value}</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:${r.color}">${r.icon} ${r.label}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   PAGE: CLIENT RADAR (portfolio) — apps/web/src/app/page.tsx
+   ============================================================ */
+function statusColorVar(status) {
+  return status === 'healthy' ? 'var(--brand-green)' : status === 'critical' ? 'var(--brand-red)' : 'var(--brand-amber)';
+}
+function statusLabel(status) {
+  return status === 'healthy' ? 'Healthy' : status === 'watch' ? 'Watch' : status === 'at_risk' ? 'At Risk' : 'Critical';
+}
+function byStatus(clients, pick) {
+  return ['healthy', 'watch', 'at_risk', 'critical'].map((status) => ({
+    value: clients.filter((c) => c.status === status).reduce((t, c) => t + pick(c), 0),
+    color: statusColorVar(status),
+    label: statusLabel(status),
+  }));
+}
+
+function renderPortfolioPage() {
+  const data = DATA.portfolio;
+  const margin = DATA.margin;
+  const marginByClient = new Map(margin.rows.map((r) => [r.clientId, r.marginPct]));
+  const arrSegments = byStatus(data.clients, (c) => c.acvValue);
+  const accountSegments = byStatus(data.clients, () => 1);
+  const atRiskSegments = [
+    { value: data.kpis.atRiskRenewingSoon, color: 'var(--brand-red)', label: 'renewing < 90 days' },
+    { value: data.kpis.atRiskAccounts - data.kpis.atRiskRenewingSoon, color: 'var(--brand-amber)', label: 'other at-risk' },
+  ];
+
+  const kpis = kpiTileHtml({ label: 'Total ARR', value: data.kpis.bookOfBusinessLabel, sub: `across ${data.kpis.totalClients} accounts`,
+      iconGlyph: '$', iconColorVar: 'var(--brand-green)', footerHtml: miniStackedBarHtml(arrSegments) })
+    + kpiTileHtml({ label: 'Gross Margin %', value: margin.bookMarginPct + '%', sub: 'under default cost-to-serve assumptions',
+      valueClass: marginPctClass(margin.bookMarginPct).replace('badge-', 'text-'),
+      iconGlyph: '%', iconColorVar: marginPctColorVar(margin.bookMarginPct),
+      visualHtml: miniMeterSvg(margin.bookMarginPct, marginPctColorVar(margin.bookMarginPct)) })
+    + kpiTileHtml({ label: 'Accounts', value: data.kpis.totalClients, sub: 'by health status',
+      iconGlyph: '◉', iconColorVar: 'var(--brand-blue)', visualHtml: miniStatusBarsHtml(accountSegments) })
+    + kpiTileHtml({ label: 'At-Risk Accounts', value: data.kpis.atRiskAccounts, sub: `${data.kpis.atRiskRenewingSoon} renewing < 90 days`,
+      valueClass: 'text-red', iconGlyph: '⚠', iconColorVar: 'var(--brand-red)', visualHtml: miniStatusBarsHtml(atRiskSegments) });
+
+  const rows = data.clients.map((c) => {
+    const badge = healthBadge(c.status);
+    const risk = renewalRiskBadge(c.renewalUrgency);
+    const mPct = marginByClient.get(c.id);
+    const growClass = c.usageGrowthPct > 0 ? 'text-green' : c.usageGrowthPct < 0 ? 'text-red' : 'text-muted';
+    return `<tr class="clickable" onclick="navigate('clients/${c.id}')">
+      <td><div class="cell-name">${esc(c.name)}</div><div class="cell-sub">${esc(c.sub)}</div></td>
+      <td class="num">${esc(c.acv)}</td>
+      <td class="num mono ${growClass}">${c.usageGrowthPct > 0 ? '+' : ''}${c.usageGrowthPct}%</td>
+      <td class="num">${mPct !== undefined ? `<span class="badge ${marginPctClass(mPct)}">${mPct.toFixed(0)}%</span>` : '<span class="text-muted">—</span>'}</td>
+      <td class="ctr">${scoreChipHtml(c.score)} <span class="badge ${badge.cls}">${badge.label}</span></td>
+      <td class="ctr"><span class="badge ${risk.cls}">${risk.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="page-title">Client Radar</h1>
+    <p class="page-sub">One reconciled view across Salesforce, usage, and billing data.</p>
+    <div class="kpi-grid">${kpis}</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">Client Overview (${data.clients.length})</span>
+        <span class="text-muted" style="font-size:13px">sorted by risk</span>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Account</th><th class="num">ACV</th><th class="num">Usage Growth (30D)</th><th class="num">Margin %</th><th class="ctr">Health</th><th class="ctr">Risk</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+}
+
+/* ============================================================
+   PAGE: CLIENT DETAIL — apps/web/src/app/clients/[id]/page.tsx
+   ============================================================ */
+let clientUiState = { clientId: null, selectedDriver: null, selectedProduct: null };
+
+function onDriverClick(i) {
+  clientUiState.selectedDriver = clientUiState.selectedDriver === i ? null : i;
+  rerenderClientDetail();
+}
+function onProductToggle(id) {
+  clientUiState.selectedProduct = clientUiState.selectedProduct === id ? null : id;
+  rerenderClientDetail();
+}
+function onProductLegendClick(id) {
+  clientUiState.selectedProduct = clientUiState.selectedProduct === id ? null : id;
+  rerenderClientDetail();
+}
+function rerenderClientDetail() {
+  document.getElementById('main-content').innerHTML = renderClientDetailPage(clientUiState.clientId);
+}
+
+function markHtml(v) {
+  if (v >= 1) return '<span class="text-green" style="font-weight:700">✓</span>';
+  if (v > 0) return '<span class="text-amber" style="font-weight:700">◐</span>';
+  return '<span class="text-muted" style="font-weight:700">—</span>';
+}
+
+function openClientAlertsModal(clientId) {
+  const alerts = DATA.alerts.alerts.filter((a) => a.clientId === clientId);
+  if (!alerts.length) return;
+  const rows = alerts.map((a) => {
+    const badge = alertSeverityBadge(a.severity);
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px" title="${esc(a.tip || '')}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="badge ${badge.cls}">${badge.label}</span><span style="font-size:12.5px;font-weight:600">${esc(a.product)}</span></div>
+        <span style="font-size:11px;color:var(--muted-foreground)">${a.detectedDaysAgo}d ago</span>
+      </div>
+      <p style="margin:8px 0 0;font-size:13px">${esc(a.message)}</p>
+      <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted-foreground)"><span>${esc(a.signal)}</span><span>Owner: ${esc(a.owner)}</span></div>
+    </div>`;
+  }).join('');
+  openModal(`<div class="modal-title">Alerts for ${esc(alerts[0].clientName)}</div>
+    <p class="modal-desc">${alerts.length} active alert${alerts.length !== 1 ? 's' : ''} · leading-indicator signals for this account</p>
+    <div style="margin-top:14px;max-height:420px;overflow-y:auto">${rows}</div>`);
+}
+
+const SIM_STEPS = {
+  salesforce: ['Validating request', 'Applying policy + permissions', 'Sending to Workato', 'Creating Salesforce task', 'Posting Slack confirmation'],
+  slack: ['Validating request', 'Applying policy + permissions', 'Sending to Workato', 'Posting to #account-team-alerts'],
+};
+function runSimulatedAction(type, clientName, owner, recText) {
+  const steps = SIM_STEPS[type];
+  let i = 0;
+  function draw() {
+    const stepsHtml = steps.map((s, idx) => `<div class="step-row ${idx < i ? 'done' : idx === i ? 'active' : ''}">
+        <span class="step-dot ${idx < i ? 'done' : ''}">${idx < i ? '✓' : idx + 1}</span>${esc(s)}
+      </div>`).join('');
+    const done = i >= steps.length;
+    openModal(`<div class="modal-title">${type === 'salesforce' ? 'Creating Salesforce follow-up' : 'Sending Slack alert'}</div>
+      <p class="modal-desc">Client: ${esc(clientName)} · Owner: ${esc(owner)}</p>
+      <div style="margin-top:14px">${stepsHtml}</div>
+      ${done ? `<div class="sim-result">
+          <div class="lbl">SIMULATED — NO REAL SYSTEM WAS CONTACTED</div>
+          <div class="val">${type === 'salesforce' ? 'Salesforce task would be created' : 'Slack alert would be posted to #account-team-alerts'}</div>
+          <div class="msg">${esc(recText)}</div>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn" onclick="closeModal()">Close</button></div>` : ''}
+    `);
+  }
+  draw();
+  const timer = setInterval(() => {
+    i++;
+    draw();
+    if (i >= steps.length) clearInterval(timer);
+  }, 450);
+}
+
+function renderClientDetailPage(clientId) {
+  const c = DATA.clients[clientId];
+  if (!c) return `<p class="text-muted">Client not found.</p>`;
+  if (clientUiState.clientId !== clientId) clientUiState = { clientId, selectedDriver: null, selectedProduct: null };
+
+  const trends = DATA.trends[clientId] || { products: [], kpis: {} };
+  const upsellByProduct = new Map(DATA.upsell.plays.filter((p) => p.clientId === c.id).map((p) => [p.productName, p]));
+  const clientAlerts = DATA.alerts.alerts.filter((a) => a.clientId === c.id);
+  const badge = healthBadge(c.status);
+  const selectedDriverInfo = clientUiState.selectedDriver !== null ? c.drivers[clientUiState.selectedDriver] : null;
+  const relatedSet = selectedDriverInfo ? new Set(selectedDriverInfo.related) : null;
+  const driverLabel = selectedDriverInfo ? (selectedDriverInfo.related.length ? `showing products driving: ${selectedDriverInfo.name}` : 'no product-specific driver') : '';
+
+  const driverRows = c.drivers.map((d, i) => `<div class="driver-row ${clientUiState.selectedDriver === i ? 'selected' : ''}" onclick="onDriverClick(${i})">
+      <span class="driver-name">${esc(d.name)}<span class="driver-weight">${d.weightPct}%</span>${d.tooltip ? `<span class="driver-info" title="${esc(d.tooltip)}">ⓘ</span>` : ''}</span>
+      <span class="driver-bar-track"><span class="driver-bar-fill ${driverBarClass(d.color)}" style="width:${Math.max(d.value, 0)}%"></span></span>
+      <span class="driver-score ${urgencyClass(d.color)}">${d.value}</span>
+      <span class="driver-delta ${d.delta > 0 ? 'text-green' : d.delta < 0 ? 'text-red' : 'text-muted'}">${d.delta > 0 ? '▲' : d.delta < 0 ? '▼' : '▬'}${Math.abs(d.delta)}</span>
+    </div>`).join('');
+
+  const productRows = c.products.map((p) => {
+    const dim = (relatedSet && !relatedSet.has(p.id)) || (clientUiState.selectedProduct !== null && clientUiState.selectedProduct !== p.id);
+    const pBadge = productStatusBadge(p.status);
+    const play = upsellByProduct.get(p.name);
+    const volText = p.bought >= 1 ? `${p.usedVolume.toLocaleString('en-US')} / ${p.contracted.toLocaleString('en-US')} ${p.unit}` : `${p.usedVolume.toLocaleString('en-US')} ${p.unit} · no contract`;
+    return `<tr class="${dim ? 'row-dim' : ''}">
+      <td><div class="clickable-text ${clientUiState.selectedProduct === p.id ? 'is-active' : ''}" onclick="onProductToggle('${p.id}')">${esc(p.name)}</div><div class="cell-sub mono">${esc(p.category)}</div></td>
+      <td class="ctr">${markHtml(p.bought)}</td>
+      <td class="ctr">${markHtml(p.used)}</td>
+      <td class="ctr">${markHtml(p.billed)}</td>
+      <td class="num">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+          <span class="driver-bar-track" style="width:60px"><span class="driver-bar-fill ${utilBarClass(p.util)}" style="width:${Math.min(p.util, 100)}%"></span></span>
+          <b class="${utilizationColorClass(p.util)}">${p.util}%</b>
+        </div>
+        <div class="cell-sub mono" style="margin-top:4px;white-space:nowrap">${volText}</div>
+      </td>
+      <td><span class="badge ${pBadge.cls}">${pBadge.label}</span></td>
+      <td class="num">${play ? `<b class="text-green">${play.upliftAcvLabel}</b>` : '<span class="text-muted">—</span>'}</td>
+      <td class="text-muted">${play ? esc(play.routedTo) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const trendHead = (trends.products[0] ? trends.products[0].series : []).map((s) => `<th class="num">${esc(s.month)}</th>`).join('');
+  const trendRows = trends.products.map((p) => {
+    const signal = trendSignalBadge(p.signal);
+    const dim = clientUiState.selectedProduct !== null && clientUiState.selectedProduct !== p.productId;
+    const momClass = p.momPct > 1 ? 'text-green' : p.momPct < -1 ? 'text-red' : 'text-muted';
+    return `<tr class="${dim ? 'row-dim' : ''}">
+      <td><div class="clickable-text ${clientUiState.selectedProduct === p.productId ? 'is-active' : ''}" onclick="onProductToggle('${p.productId}')">${esc(p.name)}</div><div class="cell-sub mono">${esc(p.unit)}</div></td>
+      ${p.series.map((s) => `<td class="num mono">${s.value.toLocaleString('en-US')}</td>`).join('')}
+      <td class="ctr">${miniTrendSvg(p.series, trendSignalColorVar(p.signal))}</td>
+      <td class="num ${momClass}">${p.momPct > 0 ? '+' : ''}${p.momPct}%</td>
+      <td><span class="badge ${signal.cls}">${signal.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  const insightsHtml = c.insights.map((ins) => `<div class="card insight-card">
+      <div class="insight-tag ${insightTagClass(ins.tag)}">${esc(ins.label)}</div>
+      <h3 class="insight-title">${esc(ins.title)}</h3>
+      <p class="insight-desc">${esc(ins.desc)}</p>
+      ${ins.action ? `<span class="insight-action">${esc(ins.action)}</span>` : ''}
+    </div>`).join('');
+
+  const evidenceHtml = (c.evidence || []).map((e) => `<div class="evidence-item"><span class="dot">•</span><div style="font-size:13px">${esc(e)}</div></div>`).join('');
+  const riskFlagsHtml = (c.riskFlags || []).map((f) => `<span class="risk-flag badge-red">⚠ ${esc(f)}</span>`).join('');
+
+  return `
+    <div class="breadcrumb"><a class="text-blue" style="cursor:pointer" onclick="navigate('')">Client Radar</a><span class="text-muted">›</span><span class="text-muted">${esc(c.name)}</span></div>
+
+    <div class="card client-header">
+      <div class="avatar-box">${esc(c.avatar)}</div>
+      <div><div style="font-size:18px;font-weight:600">${esc(c.name)}</div><div class="cell-sub" style="font-size:12px">${esc(c.sub)}</div></div>
+      <div class="client-facts">
+        <div><div class="fact-label">Billing Metric</div><div class="fact-value">${esc(c.billingMetric)}</div></div>
+        <div><div class="fact-label">ACV</div><div class="fact-value">${esc(c.acv)}</div></div>
+        <div><div class="fact-label">Tenure</div><div class="fact-value">${esc(c.tenure)}</div></div>
+        <div><div class="fact-label">Renewal</div><div class="fact-value ${urgencyClass(c.renewalUrgency)}">${esc(c.renewal)}</div></div>
+        <div><div class="fact-label">Product Adoption</div><div class="fact-value">${c.productsUsed} of ${c.productsOwned}</div></div>
+        ${clientAlerts.length ? `<button class="alerts-bell" onclick="openClientAlertsModal('${c.id}')">🔔 ${clientAlerts.length}</button>` : ''}
+      </div>
+    </div>
+
+    <div class="card ai-summary">
+      <div class="q">✦ <b class="text-foreground" style="color:var(--foreground)">Auto-summary:</b> ${esc(c.aiQuestion)}</div>
+      <div class="a">${c.aiAnswer}</div>
+    </div>
+
+    <div class="grid-2col">
+      <div class="card card-pad gauge-wrap">
+        <div class="section-label" style="align-self:flex-start">Overall Health</div>
+        ${healthGaugeSvg(c.score)}
+        <span class="badge ${badge.cls}" style="margin-top:10px">● ${badge.label}</span>
+        <div class="gauge-delta ${c.delta > 0 ? 'text-green' : c.delta < 0 ? 'text-red' : 'text-muted'}">${c.delta > 0 ? '▲ +' : c.delta < 0 ? '▼ ' : '▬ '}${Math.abs(c.delta)} pts vs. last quarter</div>
+        <div class="gauge-lastq">Last quarter <b>${c.previousScore}</b> → today <b>${c.score}</b></div>
+        <div style="margin-top:14px;width:100%;border-top:1px solid var(--border);padding-top:8px">${driverRadarSvg(c.drivers)}</div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="section-label">Score Drivers</div>
+        <div class="driver-head"><span style="flex:1">Signal</span><span style="width:70px"></span><span style="width:32px;text-align:right">Score</span><span style="width:38px;text-align:right">QoQ</span></div>
+        ${driverRows}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;overflow:hidden">
+      <div class="card-header">
+        <span class="card-header-title">Product Truth Layer — Bought · Used · Billed</span>
+        ${driverLabel ? `<span class="text-blue" style="font-size:13px;font-weight:600">${esc(driverLabel)}</span>` : ''}
+      </div>
+      <div class="table-wrap"><table style="table-layout:fixed">
+        <thead><tr><th style="width:22%">Product</th><th class="ctr" style="width:6%">Bought</th><th class="ctr" style="width:6%">Used</th><th class="ctr" style="width:6%">Billed</th><th class="num" style="width:18%">Utilization</th><th style="width:13%">Status</th><th class="num" style="width:11%">Est. ACV Uplift</th><th style="width:11%">Routed To</th></tr></thead>
+        <tbody>${productRows}</tbody>
+      </table></div>
+    </div>
+
+    <div class="card card-pad" style="margin-top:18px">
+      <div class="chart-flex-header">
+        <div class="section-label" style="margin-bottom:0">Usage by Product</div>
+        <span class="text-muted" style="font-size:12px">indexed to first month = 100% · shape, not absolute volume</span>
+      </div>
+      ${productTrendChartSvg(trends.products, clientUiState.selectedProduct)}
+    </div>
+
+    <div class="card" style="margin-top:18px;overflow:hidden">
+      <div class="card-header"><span class="card-header-title">Usage Trendline — last ${(trends.products[0] && trends.products[0].series.length) || 6} months</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Product</th>${trendHead}<th class="ctr">Trend</th><th class="num">MoM</th><th>Signal</th></tr></thead>
+        <tbody>${trendRows}</tbody>
+      </table></div>
+      <p class="card-footnote">Volumes in each product's native unit · sourced from usage_billing instead of manual Connect exports</p>
+    </div>
+
+    <div class="insights-grid">${insightsHtml}</div>
+
+    <div class="evidence-grid">
+      <div class="card card-pad">
+        <div class="section-label">Evidence</div>
+        ${evidenceHtml || '<p class="text-muted" style="font-size:12.5px">No evidence recorded.</p>'}
+      </div>
+      <div class="card rec-card">
+        <div class="section-label">Recommended action</div>
+        <p style="font-size:13.5px">${esc(c.recommendedAction)}</p>
+        <p class="text-blue" style="margin-top:8px;font-size:12.5px;font-weight:600">→ Owner: ${esc(c.actionOwner)}</p>
+        <div class="rec-actions">
+          <button class="btn" onclick="runSimulatedAction('salesforce', '${esc(c.name)}', '${esc(c.actionOwner)}', '${esc(c.recommendedAction)}')">Create Salesforce follow-up</button>
+          <button class="btn outline" onclick="runSimulatedAction('slack', '${esc(c.name)}', '${esc(c.actionOwner)}', '${esc(c.recommendedAction)}')">Send Slack alert to account team</button>
+        </div>
+      </div>
+    </div>
+
+    ${riskFlagsHtml ? `<div class="risk-flags">${riskFlagsHtml}</div>` : ''}
+
+    <div class="narrative-box">
+      <span class="tag">✦ Auto-generated QBR narrative</span>
+      <p>${c.narrative}</p>
+    </div>
+  `;
+}
+
+/* ============================================================
+   PAGE: MARGIN — apps/web/src/app/margin/page.tsx
+   ============================================================ */
+function renderMarginPage() {
+  const data = DATA.margin;
+  const rows = data.rows.map((r) => {
+    const flag = marginFlagBadge(r.flag);
+    return `<tr class="clickable" onclick="navigate('clients/${r.clientId}')">
+      <td class="cell-name">${esc(r.clientName)}</td>
+      <td class="num">${esc(r.acvLabel)}</td>
+      <td class="num">${esc(r.costToServeLabel)}</td>
+      <td class="num">${esc(r.grossMarginLabel)}</td>
+      <td class="num"><span class="badge ${marginPctClass(r.marginPct)}">${r.marginPct.toFixed(0)}%</span></td>
+      <td class="ctr text-muted">${r.healthScore}</td>
+      <td><span class="badge ${flag.cls}">${flag.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="page-title">Client Margin Lens</h1>
+    <p class="page-sub">Cost-to-serve layered onto every account to reveal true margin — not just revenue. Surfaces "healthy but low-margin" clients no other view shows.</p>
+    <div class="kpi-badges">
+      <span class="badge badge-green">Book margin ${data.bookMarginPct}%</span>
+      <span class="badge badge-purple">${data.hiddenLowMarginCount} healthy but low-margin</span>
+      <span class="badge badge-red">${data.marginDilutiveCount} margin-dilutive</span>
+    </div>
+    <div class="card card-pad" style="margin-bottom:18px">
+      <div class="chart-flex-header">
+        <div class="section-label" style="margin-bottom:0">Margin vs. Health</div>
+        <span class="text-muted" style="font-size:12px">bubble size = ACV</span>
+      </div>
+      ${marginBubbleChartSvg(data.rows)}
+      <p class="text-muted" style="font-size:11.5px;margin-top:6px">Dashed line = 50% margin threshold · top-left quadrant (healthy score, low margin) is the "hidden" risk this view exists to surface.</p>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="card-header"><span class="card-header-title">Margin by client (sorted lowest first)</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Client</th><th class="num">ACV</th><th class="num">Est. cost-to-serve</th><th class="num">Gross margin</th><th class="num">Margin %</th><th class="ctr">Health</th><th>Flag</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="card-footnote">Cost-to-serve and margin sourced directly from LiveRamp usage &amp; billing systems</p>
+    </div>`;
+}
+
+/* ============================================================
+   PAGE: UPSELL — apps/web/src/app/upsell/page.tsx
+   ============================================================ */
+function renderUpsellPage() {
+  const data = DATA.upsell;
+  const rows = data.plays.map((play) => {
+    const badge = upsellSignalBadge(play.signal);
+    return `<tr class="clickable" onclick="navigate('clients/${play.clientId}')">
+      <td><div class="cell-name">${esc(play.clientName)}</div><div class="cell-sub">${esc(play.productName)}</div></td>
+      <td><span class="badge ${badge.cls}">${badge.label}</span></td>
+      <td class="text-muted">${esc(play.currentCommit)}</td>
+      <td class="mono text-muted">${esc(play.actualUsage)}</td>
+      <td>${esc(play.recommendation)}</td>
+      <td class="num text-green" style="font-weight:700">${esc(play.upliftAcvLabel)}</td>
+      <td class="text-muted">${esc(play.routedTo)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="page-title">Upsell Engine</h1>
+    <p class="page-sub">Turns over-usage and whitespace signals into priced, routed expansion plays — automatically.</p>
+    <div class="kpi-badges">
+      <span class="badge badge-green">${esc(data.totalUpliftLabel)} pipeline uplift</span>
+      <span class="badge badge-purple">${data.playCount} plays</span>
+    </div>
+    <div class="card card-pad" style="margin-bottom:18px">
+      <div class="chart-flex-header">
+        <div class="section-label" style="margin-bottom:0">Top Opportunities</div>
+        <div class="legend-row"><span><span class="legend-dot bg-red"></span>Over-usage</span><span><span class="legend-dot bg-purple"></span>Whitespace</span></div>
+      </div>
+      ${upsellBarChartSvg(data.plays)}
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="card-header"><span class="card-header-title">Auto-generated expansion plays</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Client / Product</th><th>Signal</th><th>Current commit</th><th>Actual usage</th><th>Recommendation</th><th class="num">Est. ACV uplift</th><th>Routed to</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="card-footnote">Uplift is an illustrative estimate · quotes would draft into Salesforce, overage into billing</p>
+    </div>`;
+}
+
+/* ============================================================
+   PAGE: ALERTS — apps/web/src/app/alerts/page.tsx
+   ============================================================ */
+function renderAlertsPage() {
+  const data = DATA.alerts;
+  const rows = data.alerts.map((a) => {
+    const badge = alertSeverityBadge(a.severity);
+    return `<tr class="clickable" onclick="navigate('clients/${a.clientId}')">
+      <td><span class="badge ${badge.cls}">${badge.label}</span></td>
+      <td><div class="cell-name">${esc(a.clientName)}</div><div class="cell-sub">${esc(a.product)}</div></td>
+      <td title="${esc(a.tip || '')}">${esc(a.message)}</td>
+      <td class="text-muted" style="font-size:13px">${esc(a.signal)}</td>
+      <td class="text-muted" style="font-size:13px">${a.detectedDaysAgo}d ago</td>
+      <td class="text-muted" style="font-size:13px">${esc(a.owner)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="page-title">Leading-Indicator Alerts</h1>
+    <p class="page-sub">Real-time anomalies caught before they hit the monthly health score — early warning across the book, with an owner for each.</p>
+    <div class="kpi-badges">
+      <span class="badge badge-red">${data.kpis.high} high</span>
+      <span class="badge badge-green">${data.kpis.opportunity} opportunity</span>
+      <span class="badge badge-amber">${data.kpis.medium} medium</span>
+      <span class="badge badge-purple">${data.kpis.uploadSilence} upload-silence</span>
+    </div>
+    <div class="card card-pad" style="margin-bottom:18px">
+      <div class="section-label">By Severity</div>
+      ${alertsSeverityChartHtml(data.kpis)}
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="card-header"><span class="card-header-title">Active alerts</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Severity</th><th>Client / Product</th><th>What happened</th><th>Signal</th><th>Detected</th><th>Owner</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="card-footnote">Derived from daily usage movement · illustrative timestamps</p>
+    </div>`;
+}
+
+/* ============================================================
+   PAGE: VALUE REPORT — apps/web/src/app/value/page.tsx
+   ============================================================ */
+let valueSelectedClient = null;
+
+function clientSelectOptions(selected, clients) {
+  const list = (clients || DATA.portfolio.clients).slice().sort((a, b) => a.name.localeCompare(b.name));
+  return list.map((c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+
+function renderValuePage() {
+  if (!valueSelectedClient) valueSelectedClient = DATA.portfolio.clients[0].id;
+  const data = DATA.valueReports[valueSelectedClient];
+
+  const usedItems = (data.usedItems || []).map((it) => `<li><b>${esc(it.name)}</b> — ${esc(it.usage)}</li>`).join('');
+
+  return `
+    <h1 class="page-title">Client Value Report</h1>
+    <p class="page-sub">One-click, client-ready value summary generated from live usage — for QBRs and renewals.</p>
+    <div class="toolbar">
+      <label>Client</label>
+      <select class="selbox" onchange="valueSelectedClient=this.value; document.getElementById('main-content').innerHTML=renderValuePage()">
+        ${clientSelectOptions(valueSelectedClient)}
+      </select>
+      <button class="btn outline" style="margin-left:auto" onclick="window.print()">🖶 Export as PDF</button>
+    </div>
+    <div class="value-report">
+      <div class="value-head">
+        <div>
+          <div style="font-size:19px;font-weight:700">Your LiveRamp Value Summary</div>
+          <div class="value-cap" style="margin-top:2px">Prepared for ${esc(data.clientName)} · Q3 FY26</div>
+        </div>
+        <div style="font-size:16px;font-weight:800;color:var(--brand-blue)">LiveRamp</div>
+      </div>
+      <div class="value-hero">
+        <div><div class="value-big">${data.roiMultiplier}x</div><div class="value-cap">Return on investment</div></div>
+        <div><div class="value-big">${data.productsUsed}/${data.productsOwned}</div><div class="value-cap">Products actively adopted</div></div>
+        <div><div class="value-big">${esc(data.tenure)}</div><div class="value-cap">Partnership tenure</div></div>
+      </div>
+      <div class="value-sec">
+        <h4>Value delivered this quarter</h4>
+        <ul>${usedItems || '<li>No usage recorded this period.</li>'}</ul>
+      </div>
+      <div class="value-sec">
+        <h4>Outcomes</h4>
+        <ul>
+          <li>Consistent identity resolution and activation across your key destinations</li>
+          <li>Measured ROI of ${data.roiMultiplier}x against your annual investment</li>
+          <li>Dedicated support with ${data.stakeholders} active stakeholders engaged</li>
+        </ul>
+      </div>
+      <div class="value-foot">Generated from your live usage through the current period. Share with your LiveRamp team for a deeper review.</div>
+    </div>`;
+}
+
+/* ============================================================
+   PAGE: MIGRATION — apps/web/src/app/migration/page.tsx
+   ============================================================ */
+let migrationSelectedClient = null;
+
+function onMigrationClientChange(id) {
+  migrationSelectedClient = id;
+  document.getElementById('main-content').innerHTML = renderMigrationPage();
+}
+
+function renderMigrationPage() {
+  const overview = DATA.migrationOverview;
+  const queue = DATA.migrationQueue;
+  if (!migrationSelectedClient && queue.length) migrationSelectedClient = queue[0].clientId;
+  const account = DATA.migrationAccounts[migrationSelectedClient];
+
+  const kpis = kpiTileHtml({ label: 'Total Portfolio ACV', value: overview.kpis.totalPortfolioAcvLabel, sub: 'across the full portfolio' })
+    + kpiTileHtml({ label: 'At-Risk ACV', value: overview.kpis.atRiskAcvLabel, sub: `${overview.kpis.atRiskAccountCount} accounts need review`, valueClass: 'text-red' })
+    + kpiTileHtml({ label: 'Migration Required', value: overview.kpis.migrationRequiredCount, sub: 'Accounts in scope for token pricing', valueClass: 'text-amber' })
+    + kpiTileHtml({ label: 'Avg Margin', value: overview.kpis.avgMarginPct + '%', sub: 'under default cost-to-serve assumptions' });
+
+  const alertsHtml = overview.alerts.map((a) => {
+    const badge = migrationSeverityBadge(a.severity);
+    return `<li style="display:flex;align-items:center;gap:10px;font-size:13.5px;margin-bottom:8px"><span class="badge ${badge.cls}">${badge.label}</span>${esc(a.message)}</li>`;
+  }).join('');
+
+  const queueRows = queue.map((row) => {
+    const stage = migrationStageBadge(row.stage);
+    return `<tr class="clickable ${row.clientId === migrationSelectedClient ? 'row-selected' : ''}" onclick="onMigrationClientChange('${row.clientId}')">
+      <td class="cell-name">${esc(row.clientName)}</td>
+      <td><span class="badge badge-amber">Required</span></td>
+      <td><span class="badge ${stage.cls}">${stage.label}</span></td>
+      <td class="text-muted">${esc(row.recommendedAction)}</td>
+      <td class="num">${esc(row.acv)}</td>
+      <td class="text-muted">${esc(row.owner)}</td>
+    </tr>`;
+  }).join('');
+
+  const accountCard = account ? `<div class="card card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:600">${esc(account.clientName)}</div>
+        <span class="badge ${healthBadge(account.healthStatus).cls}">${healthBadge(account.healthStatus).label}</span>
+      </div>
+      <p class="text-muted" style="margin-top:6px;font-size:12.5px">${esc(account.narrative)}</p>
+      <div style="margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div><div class="fact-label">ACV</div><div class="fact-value">${esc(account.acv)}</div></div>
+        <div><div class="fact-label">Usage Trend</div><div class="fact-value ${account.usageTrendPct < 0 ? 'text-red' : 'text-green'}">${account.usageTrendPct > 0 ? '+' : ''}${account.usageTrendPct}%</div></div>
+        <div><div class="fact-label">Current Margin</div><div class="fact-value">${account.currentMarginPct}%</div></div>
+        <div><div class="fact-label">Renewal</div><div class="fact-value ${urgencyClass(account.renewalUrgency)}">${esc(account.renewal)}</div></div>
+      </div>
+    </div>` : '<div class="skeleton" style="height:160px"></div>';
+
+  const panel = account ? `<div style="display:grid;gap:10px">
+      <div class="panel-row"><div class="t">Migration Req: ${account.migrationRequired ? 'Required' : 'Not Required'}</div><div class="d">${account.migrationRequired ? 'This account is in scope and should be moved to token pricing.' : "This account doesn't currently meet the migration criteria."}</div></div>
+      <div class="panel-row"><div class="t">Suggested Token Plan</div><div class="d">${esc(account.tokenPlan.ratePerTokenLabel)} · ${account.tokenPlan.bundles} bundle${account.tokenPlan.bundles !== 1 ? 's' : ''}${account.tokenPlan.estimatedAcvImpactLabel ? ' · Estimated ACV impact: +' + esc(account.tokenPlan.estimatedAcvImpactLabel) : ''}</div></div>
+      <div class="panel-row"><div class="t">What to Show the Client</div><div class="d">${esc(account.whatToShowClient.join(', '))}</div></div>
+      <div class="panel-row"><div class="t">Escalation Path</div><div class="d">${esc(account.escalationPath)}</div></div>
+      <div class="panel-row"><div class="t">Migration Stage</div><div class="d"><span class="badge ${migrationStageBadge(account.stage).cls}">${migrationStageBadge(account.stage).label}</span></div></div>
+    </div>` : '';
+
+  return `
+    <h1 class="page-title">Token Migration</h1>
+    <p class="page-sub">Portfolio health, usage, margin, and token-pricing migration in one view — derived from the same client data as the rest of the portfolio.</p>
+    <div class="kpi-grid">${kpis}</div>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-bottom:18px" class="responsive-2col">
+      <div class="card card-pad">
+        <div class="chart-flex-header"><div class="section-label" style="margin-bottom:0">Usage Trends</div><span class="text-muted" style="font-size:12px">Portfolio usage index by month</span></div>
+        ${usageTrendBarChartSvg(overview.usageTrend)}
+        <p class="text-muted" style="font-size:11.5px;margin-top:8px">Indexed to the latest month (Aug = 100) · aggregated from every client/product's usage curve.</p>
+      </div>
+      <div class="card card-pad">
+        <div class="chart-flex-header"><div class="section-label" style="margin-bottom:0">Portfolio Alerts</div><span class="text-muted" style="font-size:12px">Action-oriented</span></div>
+        <ul style="list-style:none;padding:0;margin:0">${alertsHtml}</ul>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:18px;margin-bottom:18px" class="responsive-2col">
+      <div class="card card-pad">
+        <div class="chart-flex-header">
+          <div class="section-label" style="margin-bottom:0">Account Drill-down</div>
+          <select class="selbox" onchange="onMigrationClientChange(this.value)">${clientSelectOptions(migrationSelectedClient, queue.map((q) => ({ id: q.clientId, name: q.clientName })))}</select>
+        </div>
+        ${accountCard}
+      </div>
+      <div class="card card-pad">
+        <div class="section-label">Migration Panel</div>
+        ${panel}
+      </div>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div class="card-header"><span class="card-header-title">Migration Queue</span><span class="text-muted" style="font-size:13px">${queue.length} accounts in scope</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Account</th><th>Migration Req</th><th>Stage</th><th>Recommended Action</th><th class="num">ACV</th><th>Owner</th></tr></thead>
+        <tbody>${queueRows}</tbody>
+      </table></div>
+      <p class="card-footnote">Examples across the portfolio · migration status derived from usage, over-usage, and margin signals</p>
+    </div>`;
+}
+</script>
+<style>
+@media(max-width:980px){ .responsive-2col{grid-template-columns:1fr !important} }
+</style>
+</body>
+</html>

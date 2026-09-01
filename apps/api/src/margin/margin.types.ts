@@ -15,7 +15,6 @@ export interface MarginRow {
 }
 
 export interface MarginResponse {
-  assumptions: { basePct: number; intensityPct: number; overagePenaltyPct: number };
   rows: MarginRow[];
   bookMarginPct: number;
   hiddenLowMarginCount: number;

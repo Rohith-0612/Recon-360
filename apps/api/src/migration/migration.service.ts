@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CLIENTS, PMETA, SCALE } from '../data/clients.data';
-import { ClientRecord } from '../data/types';
-import { fmtMoney, healthStatus, monthlySeries, parseAcv, renewalUrgency, stringHash, TREND_MONTHS } from '../common/scoring.util';
+import { CLIENTS, MONTHS } from '../data/clients.data';
+import { RawClient } from '../data/types';
+import { deriveTrend, fmtMoney, healthStatus, mapProductStatus, renewalUrgency, stringHash } from '../common/scoring.util';
 import { ClientsService } from '../clients/clients.service';
 import { MarginService } from '../margin/margin.service';
 import { MarginRow } from '../margin/margin.types';
@@ -27,7 +27,7 @@ const WHAT_TO_SHOW_CLIENT = [
 ];
 
 interface ClientAnalysis {
-  client: ClientRecord;
+  client: RawClient;
   score: number;
   marginRow: MarginRow;
   hasOverUsage: boolean;
@@ -50,13 +50,14 @@ export class MigrationService {
   ) {}
 
   /**
-   * Derives migration-readiness for every client from data already in the system — no separate
-   * dataset. An account is flagged when it's over its committed volume (needs token pricing to
-   * capture the upside), its usage is declining (needs right-sizing to protect renewal), or its
-   * margin is compressed under default assumptions.
+   * Derives migration-readiness for every client from real data already in the system.
+   * An account is flagged when it's over its committed volume (needs token pricing to
+   * capture the upside), its usage is declining (needs right-sizing to protect renewal), or
+   * its real margin is compressed. Stage/token-plan/escalation are still novel, dummy business
+   * logic — mockdata has no equivalent for those.
    */
   private analyzeAll(): ClientAnalysis[] {
-    const marginByClient = new Map(this.marginService.getMargin(30, 40, 8).rows.map((r) => [r.clientId, r]));
+    const marginByClient = new Map(this.marginService.getMargin().rows.map((r) => [r.clientId, r]));
     const overPlaysByClient = new Map(
       this.upsellService
         .getUpsell()
@@ -65,10 +66,9 @@ export class MigrationService {
     );
 
     return CLIENTS.map((client) => {
-      const detail = this.clientsService.getClientDetail(client.id);
       const marginRow = marginByClient.get(client.id) as MarginRow;
-      const hasOverUsage = client.products.some((p) => p.status === 'over');
-      const hasDeclining = client.products.some((p) => p.trend === 'down');
+      const hasOverUsage = client.products.some((p) => mapProductStatus(p.status) === 'over');
+      const hasDeclining = client.products.some((p) => deriveTrend(p.usage_series) === 'down');
       const marginCompressed = marginRow.marginPct < MARGIN_COMPRESSION_THRESHOLD;
       const migrationRequired = hasOverUsage || hasDeclining || marginCompressed;
 
@@ -78,15 +78,15 @@ export class MigrationService {
       );
 
       const overPlay = overPlaysByClient.get(client.id);
-      const overProduct = client.products.find((p) => p.status === 'over');
-      const overPct = overProduct ? overProduct.util - 100 : null;
+      const overProduct = client.products.find((p) => mapProductStatus(p.status) === 'over');
+      const overPct = overProduct ? Math.round(overProduct.utilization * 100) - 100 : null;
 
       const stage = STAGES[stringHash(`${client.id}:stage`) % STAGES.length];
-      const escalationPath = parseAcv(client.acv) >= HIGH_ACV_THRESHOLD ? 'Commercial Leadership · Deal Desk' : 'CSM';
+      const escalationPath = client.arr >= HIGH_ACV_THRESHOLD ? 'Commercial Leadership · Deal Desk' : 'CSM';
 
       return {
         client,
-        score: detail.score,
+        score: client.health_score,
         marginRow,
         hasOverUsage,
         hasDeclining,
@@ -103,9 +103,9 @@ export class MigrationService {
 
   getOverview(): MigrationOverviewResponse {
     const analysis = this.analyzeAll();
-    const totalPortfolioAcv = CLIENTS.reduce((t, c) => t + parseAcv(c.acv), 0);
-    const atRisk = analysis.filter((a) => healthStatus(a.score) !== 'healthy');
-    const atRiskAcv = atRisk.reduce((t, a) => t + parseAcv(a.client.acv), 0);
+    const totalPortfolioAcv = CLIENTS.reduce((t, c) => t + c.arr, 0);
+    const atRisk = analysis.filter((a) => healthStatus(a.client.health_tier) !== 'healthy');
+    const atRiskAcv = atRisk.reduce((t, a) => t + a.client.arr, 0);
     const migrationRequired = analysis.filter((a) => a.migrationRequired);
     const avgMarginPct = Math.round(
       analysis.reduce((t, a) => t + a.marginRow.marginPct, 0) / analysis.length,
@@ -137,27 +137,26 @@ export class MigrationService {
     };
   }
 
-  /** Portfolio-wide usage index by month: sum of every client/product's monthlySeries(), indexed to the latest month. */
+  /** Portfolio-wide usage index by month: sum of every client/product's real usage_series, indexed to the latest month. */
   private portfolioUsageTrend(): MigrationTrendPoint[] {
-    const totals = [0, 0, 0, 0, 0, 0];
+    const totals = new Array(MONTHS.length).fill(0);
     CLIENTS.forEach((c) => {
-      const scale = SCALE[c.id] ?? 1;
       c.products.forEach((p) => {
-        monthlySeries(p, PMETA[p.id], scale).forEach((v, i) => (totals[i] += v));
+        p.usage_series.forEach((v, i) => (totals[i] += v));
       });
     });
     const latest = totals[totals.length - 1];
-    return TREND_MONTHS.map((month, i) => ({ month, value: Math.round((totals[i] / latest) * 100) }));
+    return MONTHS.map((month, i) => ({ month, value: Math.round((totals[i] / latest) * 100) }));
   }
 
   getQueue(): MigrationQueueRow[] {
     return this.analyzeAll()
       .filter((a) => a.migrationRequired)
-      .sort((a, b) => parseAcv(b.client.acv) - parseAcv(a.client.acv))
+      .sort((a, b) => b.client.arr - a.client.arr)
       .map((a) => ({
         clientId: a.client.id,
         clientName: a.client.name,
-        acv: a.client.acv,
+        acv: fmtMoney(a.client.arr),
         stage: a.stage,
         recommendedAction: this.recommendedAction(a),
         owner: this.owner(a),
@@ -176,19 +175,20 @@ export class MigrationService {
     if (analysis.marginRow.marginPct < MARGIN_COMPRESSION_THRESHOLD) {
       reasons.push(`margin compressed to ${analysis.marginRow.marginPct.toFixed(0)}%`);
     }
+    const renewal = `${client.days_to_renewal} days`;
     const narrative = analysis.migrationRequired
-      ? `${client.name} is flagged for token-pricing migration: ${reasons.join(' and ')}. Renewal is ${client.renewal} out.`
+      ? `${client.name} is flagged for token-pricing migration: ${reasons.join(' and ')}. Renewal is ${renewal} out.`
       : `${client.name} does not currently meet the migration criteria (over-usage, declining usage, or margin compression).`;
 
     return {
       clientId: client.id,
       clientName: client.name,
-      sub: client.sub,
-      acv: client.acv,
-      renewal: client.renewal,
-      renewalUrgency: renewalUrgency(client.renewal),
+      sub: `${client.billing_metrics} · SFDC #${client.salesforce_id}`,
+      acv: fmtMoney(client.arr),
+      renewal,
+      renewalUrgency: renewalUrgency(client.days_to_renewal),
       healthScore: analysis.score,
-      healthStatus: healthStatus(analysis.score),
+      healthStatus: healthStatus(client.health_tier),
       usageTrendPct: analysis.avgMomPct,
       currentMarginPct: Math.round(analysis.marginRow.marginPct),
       migrationRequired: analysis.migrationRequired,

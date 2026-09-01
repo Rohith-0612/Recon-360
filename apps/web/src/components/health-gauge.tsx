@@ -9,6 +9,9 @@ export function HealthGauge({ score }: { score: number }) {
 
   return (
     <div className="relative h-[150px] w-[150px]">
+      <svg width={150} height={150} className="absolute inset-0">
+        <circle cx={75} cy={75} r={71.5} fill="none" stroke="var(--muted)" strokeWidth={13} />
+      </svg>
       <RadialBarChart
         width={150}
         height={150}
@@ -22,7 +25,7 @@ export function HealthGauge({ score }: { score: number }) {
         endAngle={-270}
       >
         <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-        <RadialBar background={{ fill: 'var(--muted)' }} dataKey="value" cornerRadius={8} />
+        <RadialBar dataKey="value" cornerRadius={8} />
       </RadialBarChart>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold tracking-tight">{score}</span>

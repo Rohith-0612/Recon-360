@@ -1,5 +1,5 @@
 import { InsightRecord, ProductStatus, TrendClass } from '../data/types';
-import { HealthStatus, UrgencyColor } from '../common/scoring.util';
+import { DriverColor, HealthStatus, UrgencyColor } from '../common/scoring.util';
 
 export interface PortfolioKpis {
   bookOfBusiness: number;
@@ -21,11 +21,13 @@ export interface PortfolioClient {
   status: HealthStatus;
   delta: number;
   acv: string;
+  acvValue: number;
   renewal: string;
   renewalUrgency: UrgencyColor;
   productsUsed: number;
   productsOwned: number;
   flagCount: number;
+  usageGrowthPct: number;
 }
 
 export interface PortfolioResponse {
@@ -37,7 +39,7 @@ export interface DriverView {
   name: string;
   value: number;
   delta: number;
-  color: string;
+  color: DriverColor;
   weightPct: number;
   related: string[];
   tooltip: string;
@@ -62,6 +64,7 @@ export interface ClientDetailResponse {
   id: string;
   name: string;
   sub: string;
+  billingMetric: string;
   avatar: string;
   acv: string;
   tenure: string;
@@ -79,6 +82,10 @@ export interface ClientDetailResponse {
   aiAnswer: string;
   insights: InsightRecord[];
   narrative: string;
+  evidence: string[];
+  recommendedAction: string;
+  actionOwner: string;
+  riskFlags: string[];
 }
 
 export type TrendSignal = 'over_usage' | 'upsell' | 'growing' | 'risk' | 'stable';

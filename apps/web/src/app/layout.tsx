@@ -3,6 +3,7 @@ import { Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { NavBar } from "@/components/nav-bar";
+import { TopBar } from "@/components/top-bar";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -35,13 +36,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full">
         <Providers>
-          <div className="mx-auto w-full max-w-[1160px] flex-1 px-5 pb-16 pt-1">
-            <div className="print:hidden">
-              <NavBar />
+          <div className="flex min-h-screen">
+            <NavBar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopBar />
+              <div className="min-w-0 flex-1 px-6 pt-4 pb-16">{children}</div>
             </div>
-            {children}
           </div>
         </Providers>
       </body>

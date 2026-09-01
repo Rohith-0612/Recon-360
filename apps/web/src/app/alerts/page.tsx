@@ -1,13 +1,16 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useAlerts } from '@/lib/queries';
 import { alertSeverityBadge } from '@/lib/presentation';
+import { AlertsSeverityChart } from '@/components/alerts-severity-chart';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AlertsPage() {
+  const router = useRouter();
   const { data, isLoading } = useAlerts();
 
   return (
@@ -24,7 +27,7 @@ export default function AlertsPage() {
             <Badge variant="secondary" className="text-brand-red bg-brand-red/10">
               {data.kpis.high} high
             </Badge>
-            <Badge variant="secondary" className="text-brand-red bg-brand-red/10">
+            <Badge variant="secondary" className="text-brand-green bg-brand-green/10">
               {data.kpis.opportunity} opportunity
             </Badge>
             <Badge variant="secondary" className="text-brand-amber bg-brand-amber/10">
@@ -36,6 +39,11 @@ export default function AlertsPage() {
           </>
         )}
       </div>
+
+      <Card className="mb-4.5 p-5">
+        <div className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">By Severity</div>
+        {isLoading || !data ? <Skeleton className="h-[130px] w-full" /> : <AlertsSeverityChart kpis={data.kpis} />}
+      </Card>
 
       <Card className="overflow-hidden py-0">
         <CardHeader className="border-b border-border py-4">
@@ -66,7 +74,11 @@ export default function AlertsPage() {
               : data.alerts.map((a, i) => {
                   const badge = alertSeverityBadge(a.severity);
                   return (
-                    <TableRow key={i}>
+                    <TableRow
+                      key={i}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/clients/${a.clientId}`)}
+                    >
                       <TableCell>
                         <Badge variant="secondary" className={badge.className}>
                           {badge.label}

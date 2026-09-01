@@ -1,46 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMargin } from '@/lib/queries';
 import { marginFlagBadge, marginPctClass } from '@/lib/presentation';
+import { MarginBubbleChart } from '@/components/margin-bubble-chart';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function AssumptionSlider({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-      {label} <b className="font-mono text-foreground">{value}%</b>
-      <Slider
-        className="w-28"
-        min={min}
-        max={max}
-        value={[value]}
-        onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
-      />
-    </label>
-  );
-}
-
 export default function MarginPage() {
-  const [base, setBase] = useState(30);
-  const [intensity, setIntensity] = useState(40);
-  const [overage, setOverage] = useState(8);
-  const { data, isLoading } = useMargin(base, intensity, overage);
+  const router = useRouter();
+  const { data, isLoading } = useMargin();
 
   return (
     <div>
@@ -49,16 +20,6 @@ export default function MarginPage() {
         Cost-to-serve layered onto every account to reveal true margin — not just revenue. Surfaces "healthy but
         low-margin" clients no other view shows.
       </p>
-
-      <Card className="mb-3.5 p-3.5">
-        <div className="flex flex-wrap items-center gap-5">
-          <span className="text-sm font-semibold">Cost-to-serve assumptions</span>
-          <AssumptionSlider label="Baseline" value={base} onChange={setBase} min={15} max={45} />
-          <AssumptionSlider label="Usage intensity" value={intensity} onChange={setIntensity} min={10} max={60} />
-          <AssumptionSlider label="Over-usage penalty" value={overage} onChange={setOverage} min={0} max={20} />
-          <span className="ml-auto text-sm text-muted-foreground">Finance can tune → margins recompute live</span>
-        </div>
-      </Card>
 
       <div className="mb-3.5 flex justify-end gap-2">
         {data && (
@@ -75,6 +36,24 @@ export default function MarginPage() {
           </>
         )}
       </div>
+
+      <Card className="mb-4.5 p-5">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Margin vs. Health
+          </div>
+          <span className="text-xs text-muted-foreground">bubble size = ACV</span>
+        </div>
+        {isLoading || !data ? (
+          <Skeleton className="h-[320px] w-full" />
+        ) : (
+          <MarginBubbleChart rows={data.rows} />
+        )}
+        <p className="mt-1 text-[11.5px] text-muted-foreground">
+          Dashed line = 50% margin threshold · top-left quadrant (healthy score, low margin) is the "hidden" risk
+          this view exists to surface.
+        </p>
+      </Card>
 
       <Card className="overflow-hidden py-0">
         <CardHeader className="border-b border-border py-4">
@@ -106,7 +85,11 @@ export default function MarginPage() {
               : data.rows.map((r) => {
                   const flag = marginFlagBadge(r.flag);
                   return (
-                    <TableRow key={r.clientId}>
+                    <TableRow
+                      key={r.clientId}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/clients/${r.clientId}`)}
+                    >
                       <TableCell className="font-semibold">{r.clientName}</TableCell>
                       <TableCell className="text-right">{r.acvLabel}</TableCell>
                       <TableCell className="text-right">{r.costToServeLabel}</TableCell>
@@ -128,7 +111,7 @@ export default function MarginPage() {
           </TableBody>
         </Table>
         <p className="px-4 pb-3.5 text-[11.5px] text-muted-foreground">
-          Cost-to-serve estimated from usage intensity (compute/token cost) · illustrative
+          Cost-to-serve and margin sourced directly from LiveRamp usage &amp; billing systems
         </p>
       </Card>
     </div>

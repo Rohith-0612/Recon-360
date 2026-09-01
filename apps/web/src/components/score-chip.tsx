@@ -6,7 +6,7 @@ export function ScoreChip({ score }: { score: number }) {
   return (
     <span
       className={cn(
-        'inline-flex h-9.5 w-9.5 items-center justify-center rounded-[10px] text-sm font-bold',
+        'inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-bold',
         BRAND[color],
       )}
     >

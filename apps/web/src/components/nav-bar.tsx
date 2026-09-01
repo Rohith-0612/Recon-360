@@ -1,97 +1,87 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Moon, Search, Sun } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Bell, FileText, LayoutGrid, Moon, Percent, Shuffle, Sun, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { api } from '@/lib/api';
 import { useDarkMode } from '@/lib/use-dark-mode';
-import { Input } from '@/components/ui/input';
 
-const TABS = [
-  { href: '/', label: 'Portfolio' },
-  { href: '/trends', label: 'Usage Trends' },
-  { href: '/upsell', label: 'Upsell Engine' },
-  { href: '/margin', label: 'Margin' },
-  { href: '/migration', label: 'Migration' },
-  { href: '/alerts', label: 'Alerts' },
-  { href: '/value', label: 'Value Report' },
+export const TABS = [
+  { href: '/', label: 'Client Radar', icon: LayoutGrid },
+  { href: '/upsell', label: 'Upsell Engine', icon: TrendingUp },
+  { href: '/margin', label: 'Margin', icon: Percent },
+  { href: '/alerts', label: 'Alerts', icon: Bell },
+  { href: '/value', label: 'Value Report', icon: FileText },
+  { href: '/migration', label: 'Migration Insight', icon: Shuffle },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { dark, toggle } = useDarkMode();
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-
-  async function handleSearch(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter' || !query.trim()) return;
-    setSearching(true);
-    try {
-      const { clientId } = await api.search(query);
-      if (clientId) router.push(`/clients/${clientId}`);
-    } finally {
-      setSearching(false);
-    }
-  }
 
   return (
-    <div className="flex flex-wrap items-center gap-3.5 py-3">
-      <Link href="/" className="flex items-center gap-2 font-bold text-[17px] tracking-tight shrink-0">
-        <span className="grid h-6.5 w-6.5 place-items-center rounded-[7px] bg-gradient-to-br from-brand-blue to-brand-purple text-[13px] font-extrabold text-white">
-          R360
-        </span>
-        Recon&nbsp;360{' '}
-        <span className="rounded-md bg-brand-blue/10 px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider text-brand-blue">
-          HEALTHCARD+
-        </span>
-      </Link>
-
-      <div className="relative min-w-[240px] flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Ask: which clients are billed for products they don't use?"
-          className="pl-9"
-          value={query}
-          disabled={searching}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleSearch}
-        />
+    <aside className="sticky top-0 flex h-screen w-60 shrink-0 self-start flex-col bg-[#0a0d0a] print:hidden">
+      <div className="px-4 pt-5 pb-4">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 rounded-lg border border-brand-green/40 bg-white/[0.03] px-3 py-2.5"
+        >
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-brand-green/50">
+            <Image src="/recon_360_icon_only.svg" alt="Recon 360" width={18} height={18} />
+          </span>
+          <div className="leading-tight">
+            <div className="text-[17px] font-bold text-white">
+              Recon <span className="text-brand-green">360</span>
+            </div>
+            <div className="text-[9px] font-semibold tracking-wider text-white/40 uppercase">By LiveRamp</div>
+          </div>
+        </Link>
       </div>
 
-      <div className="flex gap-1.5">
+      <nav className="flex-1 space-y-0.5 px-3">
         {TABS.map((tab) => {
-          const active = pathname === tab.href;
+          const active = pathname === tab.href || (tab.href !== '/' && pathname.startsWith(tab.href));
+          const Icon = tab.icon;
           return (
             <Link
               key={tab.href}
               href={tab.href}
               className={cn(
-                'rounded-[9px] border px-3 py-2 text-xs font-semibold whitespace-nowrap',
-                active
-                  ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
+                'flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium transition-colors',
+                active ? 'bg-brand-green/15 text-brand-green' : 'text-white/65 hover:bg-white/5 hover:text-white',
               )}
             >
+              <Icon className="h-4 w-4" />
               {tab.label}
             </Link>
           );
         })}
+      </nav>
+
+      <div className="border-t border-white/10 px-4 py-4">
+        <button
+          aria-label="Toggle theme"
+          onClick={toggle}
+          className={cn(
+            'mb-3 flex h-5 w-9 items-center rounded-full border border-white/15 px-0.5 transition-colors',
+            dark ? 'justify-end bg-brand-green/40' : 'justify-start bg-white/10',
+          )}
+        >
+          <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-white">
+            {dark ? <Moon className="h-2.5 w-2.5 text-[#0a0d0a]" /> : <Sun className="h-2.5 w-2.5 text-[#0a0d0a]" />}
+          </span>
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10 text-[11px] font-semibold text-white">
+            DR
+          </span>
+          <div className="leading-tight">
+            <div className="text-[12px] font-semibold text-white">Dana Ruiz</div>
+            <div className="text-[10px] text-white/45">CS Ops</div>
+          </div>
+        </div>
       </div>
-
-      <button
-        aria-label="Toggle theme"
-        onClick={toggle}
-        className="rounded-[9px] border border-border bg-card p-2 text-muted-foreground hover:text-foreground"
-      >
-        {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      </button>
-
-      <span className="rounded-md border border-dashed border-border px-2 py-1 font-mono text-[9px] text-muted-foreground">
-        DEMO · illustrative data
-      </span>
-    </div>
+    </aside>
   );
 }

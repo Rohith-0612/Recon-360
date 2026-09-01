@@ -1,13 +1,16 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useUpsell } from '@/lib/queries';
 import { upsellSignalBadge } from '@/lib/presentation';
+import { UpsellBarChart } from '@/components/upsell-bar-chart';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function UpsellPage() {
+  const router = useRouter();
   const { data, isLoading } = useUpsell();
 
   return (
@@ -29,6 +32,21 @@ export default function UpsellPage() {
           </>
         )}
       </div>
+
+      <Card className="mb-4.5 p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Top Opportunities</div>
+          <div className="flex gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand-red" /> Over-usage
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand-purple" /> Whitespace
+            </span>
+          </div>
+        </div>
+        {isLoading || !data ? <Skeleton className="h-[260px] w-full" /> : <UpsellBarChart plays={data.plays} />}
+      </Card>
 
       <Card className="overflow-hidden py-0">
         <CardHeader className="border-b border-border py-4">
@@ -60,7 +78,11 @@ export default function UpsellPage() {
               : data.plays.map((play, i) => {
                   const badge = upsellSignalBadge(play.signal);
                   return (
-                    <TableRow key={i}>
+                    <TableRow
+                      key={i}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/clients/${play.clientId}`)}
+                    >
                       <TableCell>
                         <div className="font-semibold">{play.clientName}</div>
                         <div className="text-[11px] text-muted-foreground">{play.productName}</div>

@@ -1,42 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { CLIENTS } from '../data/clients.data';
-import { computeScore, fmtMoney, parseAcv } from '../common/scoring.util';
+import { fmtMoney } from '../common/scoring.util';
 import { MarginFlag, MarginResponse, MarginRow } from './margin.types';
+
+const MARGIN_DILUTIVE_THRESHOLD = 40;
+const MARGIN_WATCH_THRESHOLD = 50;
+const HIDDEN_HEALTH_THRESHOLD = 70;
 
 @Injectable()
 export class MarginService {
-  /** Ports renderMargin(): cost-to-serve = base + usage-intensity + over-usage penalty, capped at 85%. */
-  getMargin(basePct: number, intensityPct: number, overagePenaltyPct: number): MarginResponse {
-    const base = basePct / 100;
-    const intensity = intensityPct / 100;
-    const overagePenalty = overagePenaltyPct / 100;
-
+  /** Real margin_pct/cost_to_serve_pct per client, straight from the dataset — no formula. */
+  getMargin(): MarginResponse {
     let totalAcv = 0;
     let totalCost = 0;
     let hiddenLowMarginCount = 0;
     let marginDilutiveCount = 0;
 
     const rows: MarginRow[] = CLIENTS.map((c) => {
-      const acv = parseAcv(c.acv);
-      const avgUtil = c.products.reduce((t, p) => t + p.util, 0) / c.products.length;
-      const hasOver = c.products.some((p) => p.util > 100);
-      const costRatio = Math.min(base + (avgUtil / 100) * intensity + (hasOver ? overagePenalty : 0), 0.85);
-      const cost = acv * costRatio;
+      const acv = c.arr;
+      const marginPct = c.margin.margin_pct;
+      const cost = acv * (c.margin.cost_to_serve_pct / 100);
       const margin = acv - cost;
-      const marginPct = (1 - costRatio) * 100;
-      const healthScore = computeScore(c);
+      const healthScore = c.health_score;
 
       totalAcv += acv;
       totalCost += cost;
-      if (marginPct < 40) marginDilutiveCount++;
+      if (marginPct < MARGIN_DILUTIVE_THRESHOLD) marginDilutiveCount++;
 
       let flag: MarginFlag;
-      if (healthScore >= 70 && marginPct < 50) {
+      if (healthScore >= HIDDEN_HEALTH_THRESHOLD && marginPct < MARGIN_WATCH_THRESHOLD) {
         flag = 'hidden';
         hiddenLowMarginCount++;
-      } else if (marginPct < 40) {
+      } else if (marginPct < MARGIN_DILUTIVE_THRESHOLD) {
         flag = 'low';
-      } else if (marginPct < 50) {
+      } else if (marginPct < MARGIN_WATCH_THRESHOLD) {
         flag = 'watch';
       } else {
         flag = 'ok';
@@ -58,7 +55,6 @@ export class MarginService {
     }).sort((a, b) => a.marginPct - b.marginPct);
 
     return {
-      assumptions: { basePct, intensityPct, overagePenaltyPct },
       rows,
       bookMarginPct: Math.round((1 - totalCost / totalAcv) * 100),
       hiddenLowMarginCount,
